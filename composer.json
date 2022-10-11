@@ -1,0 +1,28 @@
+{
+    "name": "wyvr/core",
+    "type": "magento2-module",
+    "version": "0.0.0",
+    "description": "wyvr Magento 2 core module",
+    "keywords": [
+        "composer-installer",
+        "magento",
+        "wyvr"
+    ],
+    "authors": [
+        {
+            "name": "wyvr",
+            "email": "info@wyvr.dev"
+        }
+    ],
+    "require-dev": {
+        "composer/composer": "*@dev"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Wyvr\\Core\\": ""
+        }
+    }
+}

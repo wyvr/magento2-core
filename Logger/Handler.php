@@ -1,0 +1,66 @@
+<?php
+/**
+ * @author wyvr
+ * @copyright Copyright (c) 2022 wyvr (https://wyvr.dev/)
+ */
+
+namespace Wyvr\Core\Logger;
+
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Filesystem\DriverInterface;
+use Wyvr\Core\Api\Constants;
+
+class Handler extends \Magento\Framework\Logger\Handler\Base
+{
+    /**
+     * @var ScopeConfigInterface
+     */
+    protected $scopeConfig;
+
+    /**
+     * @var int @see \Monolog\Logger for log level values
+     */
+    protected $loggerType;
+
+    private $enabled;
+
+    /**
+     * @param ScopeConfigInterface $scopeConfig
+     * @param DriverInterface $filesystem
+     * @param string|null $filePath
+     * @param string|null $fileName
+     */
+    public function __construct(
+        ScopeConfigInterface $scopeConfig,
+        DriverInterface      $filesystem,
+        string               $filePath = null,
+        string               $fileName = null
+    )
+    {
+        $this->scopeConfig = $scopeConfig;
+        if (is_null($filePath)) {
+            $filePath = DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'wyvr' . DIRECTORY_SEPARATOR;
+        } else {
+            $filePath = rtrim($filePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        }
+        $this->loggerType = $this->isEnabled() ? $this->getLogLevel() : \Monolog\Logger::EMERGENCY;
+        parent::__construct($filesystem, $filePath, $fileName);
+    }
+
+    protected function isEnabled()
+    {
+        if (!is_null($this->enabled)) {
+            return $this->enabled;
+        }
+        $this->enabled = $this->scopeConfig->getValue(Constants::LOGGING_ENABLED);
+        return $this->enabled;
+    }
+
+    protected function getLogLevel()
+    {
+        if ($this->loggerType !== null) {
+            return $this->loggerType;
+        }
+        return $this->scopeConfig->getValue(Constants::LOGGING_LEVEL);
+    }
+}

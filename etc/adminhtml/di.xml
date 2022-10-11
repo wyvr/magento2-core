@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+    <type name="Magento\Cms\Controller\Adminhtml\Page\Save">
+        <plugin name="wyvr_core_plugin_pagesave" type="Wyvr\Core\Plugin\PageSavePlugin"/>
+    </type>
+    <type name="Magento\Cms\Controller\Adminhtml\Page\Delete">
+        <plugin name="wyvr_core_plugin_pagedelete" type="Wyvr\Core\Plugin\PageDeletePlugin"/>
+    </type>
+
+    <type name="Magento\Cms\Controller\Adminhtml\Block\Save">
+        <plugin name="wyvr_core_plugin_blocksave" type="Wyvr\Core\Plugin\BlockSavePlugin"/>
+    </type>
+    <type name="Magento\Cms\Controller\Adminhtml\Block\Delete">
+        <plugin name="wyvr_core_plugin_blockdelete" type="Wyvr\Core\Plugin\BlockDeletePlugin"/>
+    </type>
+
+    <type name="Magento\Catalog\Controller\Adminhtml\Category\Save">
+        <plugin name="wyvr_core_plugin_categorysave" type="Wyvr\Core\Plugin\CategorySavePlugin"/>
+    </type>
+    <type name="Magento\Catalog\Controller\Adminhtml\Category\Delete">
+        <plugin name="wyvr_core_plugin_categorydelete" type="Wyvr\Core\Plugin\CategoryDeletePlugin"/>
+    </type>
+
+    <type name="Magento\Catalog\Controller\Adminhtml\Product\Save">
+        <plugin name="wyvr_core_plugin_productsave" type="Wyvr\Core\Plugin\ProductSavePlugin"/>
+    </type>
+    <type name="Magento\Catalog\Controller\Adminhtml\Product\MassDelete">
+        <plugin name="wyvr_core_plugin_productmassdelete" type="Wyvr\Core\Plugin\ProductMassDeletePlugin"/>
+    </type>
+
+    <type name="Magento\Catalog\Model\Product\Copier">
+        <plugin name="wyvr_core_plugin_productcopy" type="Wyvr\Core\Plugin\ProductCopyPlugin"/>
+    </type>
+    <type name="Magento\ImportExport\Model\Import">
+        <plugin name="wyvr_core_plugin_productimport" type="Wyvr\Core\Plugin\ProductImportPlugin"/>
+    </type>
+</config>
