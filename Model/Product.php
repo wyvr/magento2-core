@@ -13,6 +13,7 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductColl
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
+use Magento\CatalogRule\Model\RuleFactory;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 
@@ -37,6 +38,7 @@ class Product extends ElasticClient
         Logger                    $logger,
         ProductCollectionFactory  $productCollectionFactory,
         ProductAttributeManagementInterface $productAttributeManagement,
+        RuleFactory $catalogRuleFactory,
         StoreManagerInterface     $storeManager,
         ClientBuilder             $elasticSearchClient,
         ElasticClient             $elasticClient
@@ -45,6 +47,7 @@ class Product extends ElasticClient
         $this->logger = $logger;
         $this->productCollectionFactory = $productCollectionFactory;
         $this->productAttributeManagement = $productAttributeManagement;
+        $this->catalogRuleFactory = $catalogRuleFactory;
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
 
@@ -100,6 +103,7 @@ class Product extends ElasticClient
         $data['category_ids'] = $product->getCategoryIds();
         // extend the attributes
         $this->appendAttributes($data, $product);
+        $this->appendPrice($data, $product);
 
         // convert known attributes to bool
         //        foreach (['is_active', 'is_anchor', 'include_in_menu'] as $attr) {
@@ -113,6 +117,25 @@ class Product extends ElasticClient
             'sku' => $product->getSku(),
             'product' => json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR)
         ]);
+    }
+
+    public function appendPrice(&$data, &$product) {
+        $data['final_price'] = $product->getFinalPrice();
+
+        $now = new \Datetime();
+        $specialPriceFrom = $product->getSpecialFromDate();
+        $specialPriceTo = $product->getSpecialToDate();
+        if (($specialPriceFrom && $specialPriceFrom <= $now) && ($specialPriceTo && $specialPriceTo >= $now)) {
+            $specialPrice = $product->getSpecialPrice();
+        } else {
+            $specialPrice = null;
+        }
+        $data['special_price'] = $specialPrice;
+
+        $data['rule_price'] = $this->catalogRuleFactory->create()->calcProductPriceRule(
+            $product,
+            $product->getPrice()
+        );
     }
 
     public function appendAttributes(&$data, $product)
