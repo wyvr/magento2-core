@@ -11,8 +11,9 @@ use Elasticsearch\ClientBuilder;
 use Magento\Catalog\Model\ResourceModel\Category\CollectionFactory as CategoryCollectionFactory;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Wyvr\Core\Logger\Logger;
 use Magento\Store\Model\StoreManagerInterface;
+use Magento\Catalog\Api\ProductAttributeManagementInterface;
+use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 
 class Product extends ElasticClient
@@ -35,14 +36,15 @@ class Product extends ElasticClient
         ScopeConfigInterface      $scopeConfig,
         Logger                    $logger,
         ProductCollectionFactory  $productCollectionFactory,
+        ProductAttributeManagementInterface $productAttributeManagement,
         StoreManagerInterface     $storeManager,
         ClientBuilder             $elasticSearchClient,
         ElasticClient             $elasticClient
-    )
-    {
+    ) {
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
         $this->productCollectionFactory = $productCollectionFactory;
+        $this->productAttributeManagement = $productAttributeManagement;
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
 
@@ -56,7 +58,7 @@ class Product extends ElasticClient
 
     public function updateSingle($id)
     {
-        if(is_null($id)) {
+        if (is_null($id)) {
             return;
         }
 
@@ -68,42 +70,118 @@ class Product extends ElasticClient
                 ->getFirstItem();
 
             $this->updateProduct($product, $store);
-
         }, self::INDEX);
     }
 
     public function updateAll()
     {
-//        $this->elasticClient->iterateStores(function ($store, $indexName) {
-//            $categories = $this->categoryCollectionFactory->create()
-//                ->setStore($store)
-//                ->addAttributeToSelect('*')
-//                ->getItems();
-//            $this->logger->info("categories: " . count($categories) . " from store: " . $store->getId());
-//            foreach ($categories as $category) {
-//                $this->updateCategory($category, $store);
-//            }
-//        }, self::INDEX);
+        //        $this->elasticClient->iterateStores(function ($store, $indexName) {
+        //            $categories = $this->categoryCollectionFactory->create()
+        //                ->setStore($store)
+        //                ->addAttributeToSelect('*')
+        //                ->getItems();
+        //            $this->logger->info("categories: " . count($categories) . " from store: " . $store->getId());
+        //            foreach ($categories as $category) {
+        //                $this->updateCategory($category, $store);
+        //            }
+        //        }, self::INDEX);
     }
 
     public function updateProduct($product, $store)
     {
         $id = $product->getEntityId();
-        if(is_null($id)) {
+        if (is_null($id)) {
             $this->logger->error('can not update category because the id is not set');
             return;
         }
+        // get base data
         $data = $product->getData();
+        // add the categories
+        $data['category_ids'] = $product->getCategoryIds();
+        // extend the attributes
+        $this->appendAttributes($data, $product);
+
         // convert known attributes to bool
-//        foreach (['is_active', 'is_anchor', 'include_in_menu'] as $attr) {
-//            if (array_key_exists($attr, $data)) {
-//                $data[$attr] = $data[$attr] === '1';
-//            }
-//        }
+        //        foreach (['is_active', 'is_anchor', 'include_in_menu'] as $attr) {
+        //            if (array_key_exists($attr, $data)) {
+        //                $data[$attr] = $data[$attr] === '1';
+        //            }
+        //        }
         $this->elasticClient->update([
             'id' => $id,
             'url' => $product->getUrlKey(),
+            'sku' => $product->getSku(),
             'product' => json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR)
         ]);
+    }
+
+    public function appendAttributes(&$data, $product)
+    {
+        $productAttributes = $this->productAttributeManagement->getAttributes($product->getAttributeSetId());
+        foreach ($productAttributes as $attribute) {
+            $attrCode = $attribute->getAttributeCode();
+            $attrData = $product->getData($attrCode);
+            $value = null;
+
+            if ($attrData) {
+                $data[$attrCode] = ['value' => $attrData];
+                $label = '';
+                if ($attribute->getFrontendInput() === 'select') {
+                    $label = $this->processSelect($attrData, $attribute);
+                } elseif ($attribute->getFrontendInput() === 'boolean') {
+                    $label = $attrData === '1';
+                } elseif ($attribute->getFrontendInput() === 'multiselect') {
+                    $label = $this->processMultiselect($attrData, $attribute);
+                } elseif ($attribute->getFrontendInput() === 'price') {
+                    $label = $this->processNullableFloat($attrData);
+                } elseif ($attribute->getFrontendInput() === 'date') {
+                    $label = $attrData;
+                } elseif ($attribute->getFrontendInput() === 'weight') {
+                    $label = $this->processNullableFloat($attrData);
+                } else {
+                    $label = $attrData;
+                }
+                $data[$attrCode]['label'] = $label;
+            }
+        }
+    }
+
+    private function processMultiselect($data, $attribute)
+    {
+        $splitValues = explode(',', $data);
+        $label = "";
+        foreach ($splitValues as $value) {
+            $singleLabel = $this->processSelect($value, $attribute);
+            if ($singleLabel) {
+                $label .= $singleLabel . ', ';
+            }
+        }
+        return trim(trim($label), ',');
+    }
+
+    private function processSelect($data, $attribute)
+    {
+        $option = array_filter($attribute->getOptions(), function ($value) use ($data) {
+            return $value['value'] && $value['value'] == $data;
+        });
+
+        if (!$option || !is_array($option) || count($option) <= 0) {
+            return '';
+        }
+
+        $label = reset($option)['label'];
+        if (is_a($label, 'Magento\Framework\Phrase')) {
+            return $label->getText();
+        }
+        return $label;
+    }
+
+    private function processNullableFloat($data)
+    {
+        if (is_null($data)) {
+            return null;
+        } else {
+            return floatval($data);
+        }
     }
 }
