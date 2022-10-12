@@ -17,7 +17,7 @@ use Magento\CatalogRule\Model\RuleFactory;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 
-class Product extends ElasticClient
+class Product
 {
     private const INDEX = 'product';
 
@@ -34,15 +34,16 @@ class Product extends ElasticClient
     protected $elasticClient;
 
     public function __construct(
-        ScopeConfigInterface      $scopeConfig,
-        Logger                    $logger,
-        ProductCollectionFactory  $productCollectionFactory,
+        ScopeConfigInterface                $scopeConfig,
+        Logger                              $logger,
+        ProductCollectionFactory            $productCollectionFactory,
         ProductAttributeManagementInterface $productAttributeManagement,
-        RuleFactory $catalogRuleFactory,
-        StoreManagerInterface     $storeManager,
-        ClientBuilder             $elasticSearchClient,
-        ElasticClient             $elasticClient
-    ) {
+        RuleFactory                         $catalogRuleFactory,
+        StoreManagerInterface               $storeManager,
+        ClientBuilder                       $elasticSearchClient,
+        ElasticClient                       $elasticClient
+    )
+    {
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
         $this->productCollectionFactory = $productCollectionFactory;
@@ -50,13 +51,6 @@ class Product extends ElasticClient
         $this->catalogRuleFactory = $catalogRuleFactory;
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
-
-        parent::__construct(
-            $storeManager,
-            $scopeConfig,
-            $elasticSearchClient,
-            $logger
-        );
     }
 
     public function updateSingle($id)
@@ -75,6 +69,33 @@ class Product extends ElasticClient
             $this->updateProduct($product, $store);
         }, self::INDEX);
     }
+
+    public function updateSingleBySku($sku)
+    {
+        if (is_null($sku)) {
+            return;
+        }
+        $this->elasticClient->iterateStores(function ($store) use ($sku) {
+            $product = $this->productCollectionFactory->create()
+                ->setStore($store)
+                ->addAttributeToSelect('*')
+                ->addFieldToFilter('sku', $sku)
+                ->getFirstItem();
+
+            $this->updateProduct($product, $store);
+        }, self::INDEX);
+    }
+
+    public function delete($id)
+    {
+        if (is_null($id)) {
+            return;
+        }
+        $this->elasticClient->iterateStores(function () use ($id) {
+            $this->elasticClient->delete($id);
+        }, self::INDEX);
+    }
+
 
     public function updateAll()
     {
@@ -97,6 +118,7 @@ class Product extends ElasticClient
             $this->logger->error('can not update category because the id is not set');
             return;
         }
+        $this->logger->info('update product ' . $id);
         // get base data
         $data = $product->getData();
         // add the categories

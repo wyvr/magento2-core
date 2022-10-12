@@ -15,7 +15,7 @@ use Wyvr\Core\Logger\Logger;
 use Magento\Store\Model\StoreManagerInterface;
 use Wyvr\Core\Service\ElasticClient;
 
-class Category extends ElasticClient
+class Category
 {
     private const INDEX = 'category';
 
@@ -51,12 +51,6 @@ class Category extends ElasticClient
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
 
-        parent::__construct(
-            $storeManager,
-            $scopeConfig,
-            $elasticSearchClient,
-            $logger
-        );
     }
 
     public function updateSingle($id)
@@ -136,8 +130,11 @@ class Category extends ElasticClient
 
     public function delete($id)
     {
+        if (is_null($id)) {
+            return;
+        }
         $this->elasticClient->iterateStores(function () use ($id) {
-            parent::delete($id);
+            $this->elasticClient->delete($id);
         }, self::INDEX);
     }
 }
