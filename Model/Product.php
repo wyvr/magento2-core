@@ -14,6 +14,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
 use Magento\CatalogRule\Model\RuleFactory;
+use Magento\ConfigurableProduct\Api\LinkManagementInterface;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 
@@ -29,6 +30,8 @@ class Product
     protected $productCollectionFactory;
     /** @var StoreManagerInterface */
     protected $storeManager;
+    /** @var LinkManagementInterface */
+    protected $linkManagement;
 
     /** @var ElasticClient */
     protected $elasticClient;
@@ -40,8 +43,8 @@ class Product
         ProductAttributeManagementInterface $productAttributeManagement,
         RuleFactory                         $catalogRuleFactory,
         StoreManagerInterface               $storeManager,
-        ClientBuilder                       $elasticSearchClient,
-        ElasticClient                       $elasticClient
+        ElasticClient                       $elasticClient,
+        LinkManagementInterface             $linkManagement
     )
     {
         $this->scopeConfig = $scopeConfig;
@@ -51,6 +54,7 @@ class Product
         $this->catalogRuleFactory = $catalogRuleFactory;
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
+        $this->linkManagement = $linkManagement;
     }
 
     public function updateSingle($id)
@@ -119,20 +123,18 @@ class Product
             return;
         }
         $this->logger->info('update product ' . $id);
-        // get base data
-        $data = $product->getData();
-        // add the categories
-        $data['category_ids'] = $product->getCategoryIds();
-        // extend the attributes
-        $this->appendAttributes($data, $product);
-        $this->appendPrice($data, $product);
 
-        // convert known attributes to bool
-        //        foreach (['is_active', 'is_anchor', 'include_in_menu'] as $attr) {
-        //            if (array_key_exists($attr, $data)) {
-        //                $data[$attr] = $data[$attr] === '1';
-        //            }
-        //        }
+        $data = $this->getProductData($product);
+        $data['cross_sell_products'] = array_map(function ($p) {
+            return $this->getProductData($p);
+        }, $product->getCrossSellProducts());
+        $data['upsell_products'] = array_map(function ($p) {
+            return $this->getProductData($p);
+        }, $product->getUpSellProducts());
+        $data['related_products'] = array_map(function ($p) {
+            return $this->getProductData($p);
+        }, $product->getRelatedProducts());
+
         $this->elasticClient->update([
             'id' => $id,
             'url' => $product->getUrlKey(),
@@ -141,7 +143,34 @@ class Product
         ]);
     }
 
-    public function appendPrice(&$data, &$product) {
+    public function getProductData($product)
+    {
+        // get base data
+        $data = $product->getData();
+        // add the categories
+        $data['category_ids'] = $product->getCategoryIds();
+        // extend the attributes
+        $this->appendAttributes($data, $product);
+        $this->appendPrice($data, $product);
+        $this->appendConfigurables($data, $product);
+        return $data;
+    }
+
+    public function appendConfigurables(&$data, $product)
+    {
+
+        if ($product->getTypeId() !== 'configurable') {
+            return;
+        }
+        $instance = $product->getTypeInstance();
+        $data['configurable_products'] = array_map(function ($p) {
+            return $this->getProductData($p);
+        }, $instance->getUsedProducts($product));
+        $data['configurable_options'] = $instance->getConfigurableOptions($product);
+    }
+
+    public function appendPrice(&$data, $product)
+    {
         $data['final_price'] = $product->getFinalPrice();
 
         $now = new \Datetime();
