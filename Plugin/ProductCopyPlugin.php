@@ -25,9 +25,7 @@ class ProductCopyPlugin
         $product
     ) {
         $productId = $result->getEntityId();
-
         $this->product->updateSingle($productId);
-
         return $result;
     }
 }

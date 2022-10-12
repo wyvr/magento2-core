@@ -24,9 +24,7 @@ class ProductSavePlugin
         $result
     ) {
         $productId = $subject->getRequest()->getParam('id');
-
         $this->product->updateSingle($productId);
-
         return $result;
     }
 }

@@ -143,7 +143,7 @@ class ElasticClient
         try {
             $response = $this->elasticSearchClient->delete([
                 'index' => $this->indexName,
-                'id' => 'my_id'
+                'id' => $id
             ]);
         } catch (\Exception $exception) {
             if ($exception->getCode() === 404) {
@@ -152,9 +152,6 @@ class ElasticClient
                 // the document does not exist
             }
             $this->logger->error('error delete ' . $id . ' => ' . $this->indexName . ' ' . $exception->getMessage());
-        }
-        if ($response['acknowledge'] === 1) {
-            // the document has been delete
         }
     }
 

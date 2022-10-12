@@ -11,7 +11,7 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\Ui\Component\MassAction\Filter;
 use Wyvr\Core\Model\Product;
 
-class ProductMassDeletePlugin
+class ProductMassAttributeSavePlugin
 {
     protected $product;
     protected $filter;
@@ -29,13 +29,11 @@ class ProductMassDeletePlugin
         $this->collectionFactory = $collectionFactory;
     }
 
-    public function beforeExecute(
-        \Magento\Catalog\Controller\Adminhtml\Product\MassDelete $subject
-    )
+    public function beforeExecute()
     {
         $ids = $this->filter->getCollection($this->collectionFactory->create())->getAllIds();
         foreach ($ids as $id) {
-            $this->product->delete($id);
+            $this->product->updateSingle($id);
         }
         return null;
     }

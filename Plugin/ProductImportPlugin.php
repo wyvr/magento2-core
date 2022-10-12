@@ -24,9 +24,13 @@ class ProductImportPlugin
         $result
     ) {
         if ($result && $subject->getEntity() == 'catalog_product') {
-            $payload = ['product_import' => 1];
-            
-            // @TODO get ids of the products
+            while ($bunch = $subject->getDataSourceModel()->getNextBunch()) {
+                foreach ($bunch as $rowNum => $rowData) {
+                    if (array_key_exists('sku', $rowData)) {
+                        $this->product->updateSingleBySku($rowData['sku']);
+                    }
+                }
+            }
         }
 
         return $result;
