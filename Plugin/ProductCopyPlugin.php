@@ -21,8 +21,7 @@ class ProductCopyPlugin
 
     public function afterCopy(
         \Magento\Catalog\Model\Product\Copier $subject,
-        $result,
-        $product
+        $result
     ) {
         $productId = $result->getEntityId();
         $this->product->updateSingle($productId);

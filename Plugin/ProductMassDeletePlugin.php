@@ -22,16 +22,13 @@ class ProductMassDeletePlugin
         Filter            $filter,
         CollectionFactory $collectionFactory
 
-    )
-    {
+    ) {
         $this->product = $product;
         $this->filter = $filter;
         $this->collectionFactory = $collectionFactory;
     }
 
-    public function beforeExecute(
-        \Magento\Catalog\Controller\Adminhtml\Product\MassDelete $subject
-    )
+    public function beforeExecute()
     {
         $ids = $this->filter->getCollection($this->collectionFactory->create())->getAllIds();
         foreach ($ids as $id) {

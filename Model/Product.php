@@ -23,8 +23,6 @@ class Product
 {
     private const INDEX = 'product';
 
-    private const 
-
     /** @var ScopeConfigInterface */
     protected $scopeConfig;
     /** @var Logger */
@@ -41,6 +39,7 @@ class Product
 
     /** @var ElasticClient */
     protected $elasticClient;
+    protected $category;
 
     private $ruleCache;
 
@@ -54,9 +53,9 @@ class Product
         ElasticClient                       $elasticClient,
         LinkManagementInterface             $linkManagement,
         StockItemRepository                 $stockItemRepository,
-        ProductRepository                   $productRepository
-    )
-    {
+        ProductRepository                   $productRepository,
+        Category                            $category
+    ) {
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
         $this->productCollectionFactory = $productCollectionFactory;
@@ -67,19 +66,34 @@ class Product
         $this->linkManagement = $linkManagement;
         $this->stockItemRepository = $stockItemRepository;
         $this->productRepository = $productRepository;
+        $this->category = $category;
     }
 
-    public function updateSingle($id)
+    public function updateSingle($id, $prev_category_ids = [])
     {
         if (is_null($id)) {
             return;
         }
-        $this->logger->measure('product update by id "' . $id . '"', function () use ($id) {
-            $this->elasticClient->iterateStores(function ($store) use ($id) {
-                $product = $this->productRepository->getById($id, false, $store->getId());
+        $this->logger->measure('product update by id "' . $id . '"', function () use ($id, $prev_category_ids) {
+            $affected_category_ids = [];
 
+            $this->elasticClient->iterateStores(function ($store) use ($id, $prev_category_ids, &$affected_category_ids) {
+                $product = $this->productRepository->getById($id, false, $store->getId());
+                if (is_array($prev_category_ids) && count($prev_category_ids)) {
+                    $category_ids = $product->getCategoryIds();
+                    $prev_category_ids;
+                    $affected_category_ids = array_merge($affected_category_ids, array_diff($category_ids, $prev_category_ids), array_diff($prev_category_ids, $category_ids));
+                }
                 $this->updateProduct($product, $store);
             }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            $affected_category_ids = array_unique($affected_category_ids);
+            if (count($affected_category_ids) > 0) {
+                $this->logger->info('affected category ids ' . join(',', $affected_category_ids));
+                foreach ($affected_category_ids as $id) {
+                    $this->category->updateSingle($id);
+                }
+            }
         });
     }
 
