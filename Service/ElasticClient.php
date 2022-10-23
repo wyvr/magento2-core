@@ -142,11 +142,12 @@ class ElasticClient
 
         $indexName = $this->indexName;
 
+        $indices = $this->elasticSearchClient->indices();
         // create the indices when not existing
-        if (!$this->elasticSearchClient->exists([
+        if (!$indices->exists([
             'index' => $indexName
         ])) {
-            $this->elasticSearchClient->indices()->create(['index' => $indexName]);
+            $indices->create(['index' => $indexName]);
         }
 
         try {
