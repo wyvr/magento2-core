@@ -20,7 +20,7 @@ class Logger extends \Monolog\Logger
             return;
         }
         $time_start = microtime(true);
-        $this->notice($triggerName . ' started');
+        $this->info($triggerName . ' started');
 
         try {
             $callback($triggerName);
