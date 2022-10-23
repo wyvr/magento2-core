@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @author wyvr
  * @copyright Copyright (c) 2022 wyvr (https://wyvr.dev/)
@@ -35,8 +36,7 @@ class CronManager
         Logger                $logger,
         Category              $category,
         Product               $product,
-    )
-    {
+    ) {
         $this->storeManager = $storeManager;
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
@@ -44,19 +44,12 @@ class CronManager
         $this->product = $product;
     }
 
-    public function rebuild(): void
+    public function rebuild_categories(): void
     {
-        $time_start = microtime(true);
-        $this->logger->info('cron rebuild started');
-
-       $this->category->updateAll();
-       $this->product->updateAll();
-
-
-
-        $execution_time = round((microtime(true) - $time_start) * 1000);
-        $this->logger->info('cron rebuild done in ' . $execution_time . 'ms');
-
+        $this->category->updateAll('cron categories');
     }
-
+    public function rebuild_products(): void
+    {
+        $this->product->updateAll('cron products');
+    }
 }

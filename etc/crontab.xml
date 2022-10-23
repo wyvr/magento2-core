@@ -2,9 +2,13 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Cron:etc/crontab.xsd">
     <group id="default">
-        <job name="wyvr_rebuild" instance="Wyvr\Core\Cron\CronManager"
-             method="rebuild">
+        <job name="wyvr_rebuild_categories" instance="Wyvr\Core\Cron\CronManager"
+             method="rebuild_categories">
             <schedule>0 1 * * *</schedule>
+        </job>
+        <job name="wyvr_rebuild_products" instance="Wyvr\Core\Cron\CronManager"
+             method="rebuild_products">
+            <schedule>5 1 * * *</schedule>
         </job>
     </group>
 </config>
