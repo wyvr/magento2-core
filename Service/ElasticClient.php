@@ -107,27 +107,26 @@ class ElasticClient
             return;
         }
 
-        $indexName = $this->indexName;
-        $indices = $this->elasticSearchClient->cat()->indices();
-
-        // create the indices when not existing
-        if ($indices && is_array($indices) && array_search($indexName, array_column($indices, 'index')) === false) {
-            $this->elasticSearchClient->indices()->create(['index' => $indexName]);
-        }
         // only add when data is valid
         if (!array_key_exists('id', $data)) {
             return;
         }
 
-        // encapsulate data into the field data, because elasticsearch has limit of columns(1000)
-        // and because elastic search creates a "table" structure based on the first item in the indices
-        $params = [
+        $indexName = $this->indexName;
+
+        // create the indices when not existing
+        if (!$this->elasticSearchClient->exists([
+            'index' => $indexName
+        ])) {
+            $this->elasticSearchClient->indices()->create(['index' => $indexName]);
+        }
+
+        try {
+            $this->elasticSearchClient->index([
             'index' => $indexName,
             'id' => $data['id'],
             'body' => $data
-        ];
-        try {
-            $this->elasticSearchClient->index($params);
+            ]);
         } catch (\Exception $exception) {
             $this->logger->error('error update ' . $data['id'] . ' => ' . $this->indexName . ' ' . $exception->getMessage());
             return;
