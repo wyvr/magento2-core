@@ -59,15 +59,15 @@ class Category
             return;
         }
         $this->logger->measure('category update by id "' . $id . '"', function () use ($id) {
-        $this->elasticClient->iterateStores(function ($store) use ($id) {
-            $category = $this->categoryCollectionFactory->create()
-                ->setStore($store)
-                ->addAttributeToSelect('*')
-                ->addFieldToFilter('entity_id', $id)
-                ->getFirstItem();
+            $this->elasticClient->iterateStores(function ($store) use ($id) {
+                $category = $this->categoryCollectionFactory->create()
+                    ->setStore($store)
+                    ->addAttributeToSelect('*')
+                    ->addFieldToFilter('entity_id', $id)
+                    ->getFirstItem();
 
-            $this->updateCategory($category, $store);
-        }, self::INDEX, Constants::CATEGORY_STRUC);
+                $this->updateCategory($category, $store);
+            }, self::INDEX, Constants::CATEGORY_STRUC);
         });
     }
 
@@ -116,7 +116,7 @@ class Category
             'id' => $id,
             'url' => $category->getUrlKey(),
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
-            'category' => json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR)
+            'category' => $data
         ]);
     }
 
