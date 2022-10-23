@@ -12,24 +12,12 @@ use Wyvr\Core\Api\Constants;
 
 class Handler extends \Magento\Framework\Logger\Handler\Base
 {
-    /**
-     * @var ScopeConfigInterface
-     */
     protected $scopeConfig;
 
-    /**
-     * @var int @see \Monolog\Logger for log level values
-     */
     protected $loggerType;
 
     private $enabled;
 
-    /**
-     * @param ScopeConfigInterface $scopeConfig
-     * @param DriverInterface $filesystem
-     * @param string|null $filePath
-     * @param string|null $fileName
-     */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         DriverInterface      $filesystem,
@@ -39,9 +27,9 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
     {
         $this->scopeConfig = $scopeConfig;
         if (is_null($filePath)) {
-            $filePath = DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'wyvr' . DIRECTORY_SEPARATOR;
+            $filePath = '..' . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
         } else {
-            $filePath = rtrim($filePath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            $filePath = '..' . DIRECTORY_SEPARATOR . ltrim(rtrim($filePath, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
         }
         $this->loggerType = $this->isEnabled() ? $this->getLogLevel() : \Monolog\Logger::EMERGENCY;
         parent::__construct($filesystem, $filePath, $fileName);
@@ -52,7 +40,7 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
         if (!is_null($this->enabled)) {
             return $this->enabled;
         }
-        $this->enabled = $this->scopeConfig->getValue(Constants::LOGGING_ENABLED);
+        $this->enabled = $this->scopeConfig->getValue(Constants::LOGGING_ENABLED) === '1';
         return $this->enabled;
     }
 
@@ -61,6 +49,6 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
         if ($this->loggerType !== null) {
             return $this->loggerType;
         }
-        return $this->scopeConfig->getValue(Constants::LOGGING_LEVEL);
+        return intval($this->scopeConfig->getValue(Constants::LOGGING_LEVEL));
     }
 }

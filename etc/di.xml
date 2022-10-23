@@ -4,7 +4,7 @@
 
     <type name="Wyvr\Core\Logger\Logger">
         <arguments>
-            <argument name="name" xsi:type="string">wyvr.core</argument>
+            <argument name="name" xsi:type="string">wyvrLogger</argument>
             <argument name="handlers" xsi:type="array">
                 <item name="system" xsi:type="object">Wyvr\Core\Logger\Handler</item>
             </argument>
@@ -13,8 +13,8 @@
 
     <type name="Wyvr\Core\Logger\Handler">
         <arguments>
-            <argument name="filePath" xsi:type="string">var/log/wyvr</argument>
-            <argument name="fileName" xsi:type="string">core.log</argument>
+            <argument name="filePath" xsi:type="string">var/log</argument>
+            <argument name="fileName" xsi:type="string">wyvr.log</argument>
         </arguments>
     </type>
 </config>
