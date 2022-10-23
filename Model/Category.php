@@ -58,6 +58,7 @@ class Category
         if (is_null($id)) {
             return;
         }
+        $this->logger->measure('category update by id "' . $id . '"', function () use ($id) {
         $this->elasticClient->iterateStores(function ($store) use ($id) {
             $category = $this->categoryCollectionFactory->create()
                 ->setStore($store)
@@ -67,6 +68,7 @@ class Category
 
             $this->updateCategory($category, $store);
         }, self::INDEX, Constants::CATEGORY_STRUC);
+        });
     }
 
     public function updateAll($triggerName)
