@@ -7,20 +7,23 @@
 
 namespace Wyvr\Core\Model;
 
-use Elasticsearch\ClientBuilder;
-use Magento\Catalog\Model\ResourceModel\Category\CollectionFactory as CategoryCollectionFactory;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
+use Magento\Catalog\Model\ProductRepository;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
 use Magento\CatalogRule\Model\RuleFactory;
 use Magento\ConfigurableProduct\Api\LinkManagementInterface;
+use Magento\CatalogInventory\Model\Stock\StockItemRepository;
+use Wyvr\Core\Api\Constants;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 
 class Product
 {
     private const INDEX = 'product';
+
+    private const 
 
     /** @var ScopeConfigInterface */
     protected $scopeConfig;
@@ -33,8 +36,13 @@ class Product
     /** @var LinkManagementInterface */
     protected $linkManagement;
 
+    /** @var StockItemRepository */
+    protected $stockItemRepository;
+
     /** @var ElasticClient */
     protected $elasticClient;
+
+    private $ruleCache;
 
     public function __construct(
         ScopeConfigInterface                $scopeConfig,
@@ -44,7 +52,9 @@ class Product
         RuleFactory                         $catalogRuleFactory,
         StoreManagerInterface               $storeManager,
         ElasticClient                       $elasticClient,
-        LinkManagementInterface             $linkManagement
+        LinkManagementInterface             $linkManagement,
+        StockItemRepository                 $stockItemRepository,
+        ProductRepository                   $productRepository
     )
     {
         $this->scopeConfig = $scopeConfig;
@@ -55,6 +65,8 @@ class Product
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
         $this->linkManagement = $linkManagement;
+        $this->stockItemRepository = $stockItemRepository;
+        $this->productRepository = $productRepository;
     }
 
     public function updateSingle($id)
@@ -62,16 +74,13 @@ class Product
         if (is_null($id)) {
             return;
         }
+        $this->logger->measure('product update by id "' . $id . '"', function () use ($id) {
+            $this->elasticClient->iterateStores(function ($store) use ($id) {
+                $product = $this->productRepository->getById($id, false, $store->getId());
 
-        $this->elasticClient->iterateStores(function ($store) use ($id) {
-            $product = $this->productCollectionFactory->create()
-                ->setStore($store)
-                ->addAttributeToSelect('*')
-                ->addFieldToFilter('entity_id', $id)
-                ->getFirstItem();
-
-            $this->updateProduct($product, $store);
-        }, self::INDEX);
+                $this->updateProduct($product, $store);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
     }
 
     public function updateSingleBySku($sku)
@@ -79,15 +88,13 @@ class Product
         if (is_null($sku)) {
             return;
         }
-        $this->elasticClient->iterateStores(function ($store) use ($sku) {
-            $product = $this->productCollectionFactory->create()
-                ->setStore($store)
-                ->addAttributeToSelect('*')
-                ->addFieldToFilter('sku', $sku)
-                ->getFirstItem();
+        $this->logger->measure('product update by sku "' . $sku . '"', function () use ($sku) {
+            $this->elasticClient->iterateStores(function ($store) use ($sku) {
+                $product = $this->productRepository->get($sku, false, $store->getId());
 
-            $this->updateProduct($product, $store);
-        }, self::INDEX);
+                $this->updateProduct($product, $store);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
     }
 
     public function delete($id)
@@ -97,74 +104,88 @@ class Product
         }
         $this->elasticClient->iterateStores(function () use ($id) {
             $this->elasticClient->delete($id);
-        }, self::INDEX);
+        }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
 
-    public function updateAll()
+    public function updateAll($triggerName)
     {
-        //        $this->elasticClient->iterateStores(function ($store, $indexName) {
-        //            $categories = $this->categoryCollectionFactory->create()
-        //                ->setStore($store)
-        //                ->addAttributeToSelect('*')
-        //                ->getItems();
-        //            $this->logger->info("categories: " . count($categories) . " from store: " . $store->getId());
-        //            foreach ($categories as $category) {
-        //                $this->updateCategory($category, $store);
-        //            }
-        //        }, self::INDEX);
+        if (empty($triggerName)) {
+            $this->logger->error('category updateAll No trigger name specified');
+            return;
+        }
+
+        $this->logger->measure('product updateAll "' . $triggerName . '"', function () {
+            $this->elasticClient->iterateStores(function ($store) {
+                $products = $this->productCollectionFactory->create()
+                    ->setStore($store)
+                    ->getItems();
+
+                $this->logger->info('updated ' . count($products) . ' products from store ' . $store->getId());
+
+                foreach ($products as $p) {
+                    $product = $this->productRepository->getById($p->getId(), false, $store->getId());
+                    $this->updateProduct($product, $store);
+                }
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
     }
 
     public function updateProduct($product, $store)
     {
         $id = $product->getEntityId();
+        $storeId = $store->getId();
         if (is_null($id)) {
             $this->logger->error('can not update category because the id is not set');
             return;
         }
-        $this->logger->info('update product ' . $id);
+        $this->logger->debug('update product ' . $id);
 
-        $data = $this->getProductData($product);
-        $data['cross_sell_products'] = array_map(function ($p) {
-            return $this->getProductData($p);
+        $data = $this->getProductData($product, $storeId);
+        $data['cross_sell_products'] = array_map(function ($p) use ($storeId) {
+            return $this->getProductData($p, $storeId);
         }, $product->getCrossSellProducts());
-        $data['upsell_products'] = array_map(function ($p) {
-            return $this->getProductData($p);
+        $data['upsell_products'] = array_map(function ($p) use ($storeId) {
+            return $this->getProductData($p, $storeId);
         }, $product->getUpSellProducts());
-        $data['related_products'] = array_map(function ($p) {
-            return $this->getProductData($p);
+        $data['related_products'] = array_map(function ($p) use ($storeId) {
+            return $this->getProductData($p, $storeId);
         }, $product->getRelatedProducts());
+
+        $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PRODUCT_INDEX_ATTRIBUTES), $data);
 
         $this->elasticClient->update([
             'id' => $id,
             'url' => $product->getUrlKey(),
             'sku' => $product->getSku(),
-            'product' => json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR)
+            'search' => $search,
+            'product' => $data
         ]);
     }
 
-    public function getProductData($product)
+    public function getProductData($product, $storeId)
     {
         // get base data
         $data = $product->getData();
+        $data['stock'] = $this->stockItemRepository->get($product->getId())->getData();
         // add the categories
         $data['category_ids'] = $product->getCategoryIds();
         // extend the attributes
-        $this->appendAttributes($data, $product);
+        $this->appendAttributes($data, $product, $storeId);
         $this->appendPrice($data, $product);
-        $this->appendConfigurables($data, $product);
+        $this->appendConfigurables($data, $product, $storeId);
         return $data;
     }
 
-    public function appendConfigurables(&$data, $product)
+    public function appendConfigurables(&$data, $product, $storeId)
     {
 
         if ($product->getTypeId() !== 'configurable') {
             return;
         }
         $instance = $product->getTypeInstance();
-        $data['configurable_products'] = array_map(function ($p) {
-            return $this->getProductData($p);
+        $data['configurable_products'] = array_map(function ($p) use ($storeId) {
+            return $this->getProductData($p, $storeId);
         }, $instance->getUsedProducts($product));
         $data['configurable_options'] = $instance->getConfigurableOptions($product);
     }
@@ -189,33 +210,53 @@ class Product
         );
     }
 
-    public function appendAttributes(&$data, $product)
+    public function appendAttributes(&$data, $product, $storeId)
     {
         $productAttributes = $this->productAttributeManagement->getAttributes($product->getAttributeSetId());
         foreach ($productAttributes as $attribute) {
             $attrCode = $attribute->getAttributeCode();
             $attrData = $product->getData($attrCode);
-            $value = null;
-
-            if ($attrData) {
-                $data[$attrCode] = ['value' => $attrData];
-                $label = '';
-                if ($attribute->getFrontendInput() === 'select') {
-                    $label = $this->processSelect($attrData, $attribute);
-                } elseif ($attribute->getFrontendInput() === 'boolean') {
-                    $label = $attrData === '1';
-                } elseif ($attribute->getFrontendInput() === 'multiselect') {
-                    $label = $this->processMultiselect($attrData, $attribute);
-                } elseif ($attribute->getFrontendInput() === 'price') {
-                    $label = $this->processNullableFloat($attrData);
-                } elseif ($attribute->getFrontendInput() === 'date') {
-                    $label = $attrData;
-                } elseif ($attribute->getFrontendInput() === 'weight') {
-                    $label = $this->processNullableFloat($attrData);
-                } else {
-                    $label = $attrData;
+            $label = $attribute->getDefaultFrontendLabel();
+            $attrLabel = $attribute->getFrontendLabels();
+            if (!empty($attrLabel)) {
+                $store_label = current(array_filter($attrLabel, function ($l) use ($storeId) {
+                    return $l->getStoreId() == $storeId;
+                }));
+                if ($store_label) {
+                    $label = $store_label->getLabel();
                 }
-                $data[$attrCode]['label'] = $label;
+            }
+            if ($attrData) {
+                $name = null;
+                $type = $attribute->getFrontendInput();
+                if ($type === 'select') {
+                    $name = $this->processSelect($attrData, $attribute);
+                } elseif ($type === 'boolean') {
+                    $name = $attrData === '1';
+                } elseif ($type === 'multiselect') {
+                    $name = $this->processMultiselect($attrData, $attribute);
+                } elseif ($type === 'price') {
+                    $name = $this->processNullableFloat($attrData);
+                } elseif ($type === 'date') {
+                    $name = $attrData;
+                } elseif ($type === 'weight') {
+                    $name = $this->processNullableFloat($attrData);
+                }
+
+
+                $data[$attrCode] = ['value' => $attrData];
+                $has_additional_data = false;
+                if (!is_null($label)) {
+                    $data[$attrCode]['label'] = $label;
+                    $has_additional_data = true;
+                }
+                if (!is_null($name) && $name != $attrData) {
+                    $data[$attrCode]['name'] = $name;
+                    $has_additional_data = true;
+                }
+                if (!$has_additional_data) {
+                    $data[$attrCode] = $attrData;
+                }
             }
         }
     }

@@ -82,6 +82,34 @@ class ElasticClient
         return $this;
     }
 
+    public function createIndex($indexName, $mapping): bool
+    {
+        $indices = $this->elasticSearchClient->indices();
+        $exists = $indices->exists(['index' => $indexName]);
+        if (!$exists) {
+            $indices->create(['index' => $indexName, 'body' => ['mappings' => ['properties' => $mapping]]]);
+        }
+        return $exists;
+    }
+
+    public function getSearchFromAttributes($attributes, $object)
+    {
+        if (!is_string($attributes) || !is_array($object) || count($object) == 0) {
+            return '';
+        }
+        $result = array_filter(array_map(function ($entry) use ($object) {
+            $attr = trim($entry);
+            if (!array_key_exists($attr, $object)) {
+                return null;
+            }
+            return $object[$attr];
+        }, explode(',', $attributes)), function ($entry) {
+            return !is_null($entry);
+        });
+
+        return json_encode($result);
+    }
+
     public function remove(int $id): void
     {
         if (!$this->isValid()) {
@@ -123,9 +151,9 @@ class ElasticClient
 
         try {
             $this->elasticSearchClient->index([
-            'index' => $indexName,
-            'id' => $data['id'],
-            'body' => $data
+                'index' => $indexName,
+                'id' => $data['id'],
+                'body' => $data
             ]);
         } catch (\Exception $exception) {
             $this->logger->error('error update ' . $data['id'] . ' => ' . $this->indexName . ' ' . $exception->getMessage());
@@ -154,7 +182,7 @@ class ElasticClient
         }
     }
 
-    public function iterateStores(callable $callback, $index): void
+    public function iterateStores(callable $callback, $index, $structure): void
     {
         if (is_null($callback)) {
             $this->logger->error('missing callback in iterateStores');
@@ -168,6 +196,7 @@ class ElasticClient
             $store_id = $store->getId();
             $indexName = 'wyvr_' . $index . '_' . $store_id;
             $this->setIndexName($indexName);
+            $this->createIndex($indexName, $structure);
             try {
                 $callback($store, $indexName);
             } catch (\Exception $exception) {

@@ -13,6 +13,7 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductColl
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Wyvr\Core\Logger\Logger;
 use Magento\Store\Model\StoreManagerInterface;
+use Wyvr\Core\Api\Constants;
 use Wyvr\Core\Service\ElasticClient;
 
 class Category
@@ -50,7 +51,6 @@ class Category
         $this->productCollectionFactory = $productCollectionFactory;
         $this->storeManager = $storeManager;
         $this->elasticClient = $elasticClient;
-
     }
 
     public function updateSingle($id)
@@ -66,21 +66,30 @@ class Category
                 ->getFirstItem();
 
             $this->updateCategory($category, $store);
-        }, self::INDEX);
+        }, self::INDEX, Constants::CATEGORY_STRUC);
     }
 
-    public function updateAll()
+    public function updateAll($triggerName)
     {
-        $this->elasticClient->iterateStores(function ($store, $indexName) {
-            $categories = $this->categoryCollectionFactory->create()
-                ->setStore($store)
-                ->addAttributeToSelect('*')
-                ->getItems();
-            $this->logger->info("categories: " . count($categories) . " from store: " . $store->getId());
-            foreach ($categories as $category) {
-                $this->updateCategory($category, $store);
-            }
-        }, self::INDEX);
+        if (empty($triggerName)) {
+            $this->logger->error('category updateAll No trigger name specified');
+            return;
+        }
+
+        $this->logger->measure('category updateAll "' . $triggerName . '"', function () {
+            $this->elasticClient->iterateStores(function ($store) {
+                $categories = $this->categoryCollectionFactory->create()
+                    ->setStore($store)
+                    ->addAttributeToSelect('*')
+                    ->getItems();
+
+                $this->logger->info('updated ' . count($categories) . ' categories from store ' . $store->getId());
+
+                foreach ($categories as $category) {
+                    $this->updateCategory($category, $store);
+                }
+            }, self::INDEX, Constants::CATEGORY_STRUC);
+        });
     }
 
     public function updateCategory($category, $store)
@@ -104,6 +113,7 @@ class Category
         $this->elasticClient->update([
             'id' => $id,
             'url' => $category->getUrlKey(),
+            'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR)
         ]);
     }
@@ -113,8 +123,7 @@ class Category
         $store_id = $store->getId();
         if (!array_key_exists($store_id, $this->cacheProductCollection)) {
             $this->cacheProductCollection[$store_id] = $this->productCollectionFactory->create()
-                ->setStore($store)
-                ->addAttributeToSelect('*');
+                ->setStore($store);
         }
         $products = $this->cacheProductCollection[$store_id]
             ->addCategoriesFilter(['in' => [$id]])
@@ -122,7 +131,10 @@ class Category
 
         $enhanced_products = [];
         foreach ($products as $product) {
-            $enhanced_products[] = $product->getData();
+            $enhanced_products[] = [
+                'id' => $product->getId(),
+                'sku' => $product->getSku()
+            ];
         }
 
         return $enhanced_products;
@@ -135,6 +147,6 @@ class Category
         }
         $this->elasticClient->iterateStores(function () use ($id) {
             $this->elasticClient->delete($id);
-        }, self::INDEX);
+        }, self::INDEX, Constants::CATEGORY_STRUC);
     }
 }

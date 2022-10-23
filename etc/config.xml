@@ -6,6 +6,12 @@
                 <enabled>1</enabled>
                 <level>100</level>
             </logging>
+            <product>
+                <index_attributes>name,description</index_attributes>
+            </product>
+            <category>
+                <index_attributes>name,description</index_attributes>
+            </category>
         </wyvr>
     </default>
 </config>
