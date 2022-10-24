@@ -118,6 +118,7 @@ class ElasticClient
         if (!$id) {
             return;
         }
+        $this->setMarker('remove', $id);
 
         $params = [
             'index' => $this->indexName,
@@ -149,7 +150,7 @@ class ElasticClient
         ])) {
             $indices->create(['index' => $indexName]);
         }
-
+        $this->setMarker('update', $data['id']);
         try {
             $this->elasticSearchClient->index([
                 'index' => $indexName,
@@ -231,5 +232,18 @@ class ElasticClient
     public function destroy()
     {
         $this->elasticSearchClient->indices()->delete(['index' => $this->indexName]);
+    }
+
+    public function setMarker($action, $marker)
+    {
+        try {
+
+            $fileName = '../var/' . $this->indexName . '-' . $action;
+            $fp = fopen($fileName, 'a+');
+            fwrite($fp, $marker . "\n");
+            fclose($fp);
+        } catch (\Exception $exception) {
+            $this->logger->error('error create marker in ' . $fileName . ' ' . $exception->getMessage());
+        }
     }
 }
