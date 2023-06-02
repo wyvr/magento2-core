@@ -27,9 +27,9 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
     {
         $this->scopeConfig = $scopeConfig;
         if (is_null($filePath)) {
-            $filePath = '..' . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
+            $filePath = '.' . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
         } else {
-            $filePath = '..' . DIRECTORY_SEPARATOR . ltrim(rtrim($filePath, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            $filePath = '.' . DIRECTORY_SEPARATOR . ltrim(rtrim($filePath, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
         }
         $this->loggerType = $this->isEnabled() ? $this->getLogLevel() : \Monolog\Logger::EMERGENCY;
         parent::__construct($filesystem, $filePath, $fileName);

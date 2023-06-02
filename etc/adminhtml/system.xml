@@ -24,6 +24,14 @@
                     </depends>
                 </field>
             </group>
+            <group id="settings" translate="label" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Settings</label>
+
+                <field id="included_paths" translate="label" type="textarea" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Included Paths list</label>
+                    <comment>enter seperated list</comment>
+                </field>
+            </group>
             <group id="product" translate="label" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Product</label>
 
@@ -34,6 +42,14 @@
             </group>
             <group id="category" translate="label" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Category</label>
+
+                <field id="index_attributes" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Searchable attributes</label>
+                    <comment>comma seperated list</comment>
+                </field>
+            </group>
+            <group id="page" translate="label" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>CMS Page</label>
 
                 <field id="index_attributes" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>Searchable attributes</label>

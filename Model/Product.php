@@ -23,25 +23,17 @@ class Product
 {
     private const INDEX = 'product';
 
-    /** @var ScopeConfigInterface */
-    protected $scopeConfig;
-    /** @var Logger */
-    protected $logger;
-    /** @var ProductCollectionFactory */
-    protected $productCollectionFactory;
-    /** @var StoreManagerInterface */
-    protected $storeManager;
-    /** @var LinkManagementInterface */
-    protected $linkManagement;
-
-    /** @var StockItemRepository */
-    protected $stockItemRepository;
-
-    /** @var ElasticClient */
-    protected $elasticClient;
-    protected $category;
-
-    private $ruleCache;
+    protected ScopeConfigInterface $scopeConfig;
+    private Logger $logger;
+    protected ProductCollectionFactory $productCollectionFactory;
+    protected ProductAttributeManagementInterface $productAttributeManagement;
+    protected RuleFactory $catalogRuleFactory;
+    protected StoreManagerInterface $storeManager;
+    protected LinkManagementInterface $linkManagement;
+    protected StockItemRepository $stockItemRepository;
+    protected ElasticClient $elasticClient;
+    protected Category $category;
+    protected ProductRepository $productRepository;
 
     public function __construct(
         ScopeConfigInterface                $scopeConfig,
@@ -55,7 +47,8 @@ class Product
         StockItemRepository                 $stockItemRepository,
         ProductRepository                   $productRepository,
         Category                            $category
-    ) {
+    )
+    {
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
         $this->productCollectionFactory = $productCollectionFactory;
@@ -71,7 +64,7 @@ class Product
 
     public function updateSingle($id, $prev_category_ids = [])
     {
-        if (is_null($id)) {
+        if (empty($id)) {
             return;
         }
         $this->logger->measure('product update by id "' . $id . '"', function () use ($id, $prev_category_ids) {
@@ -99,7 +92,7 @@ class Product
 
     public function updateSingleBySku($sku)
     {
-        if (is_null($sku)) {
+        if (empty($sku)) {
             return;
         }
         $this->logger->measure('product update by sku "' . $sku . '"', function () use ($sku) {
@@ -113,11 +106,12 @@ class Product
 
     public function delete($id)
     {
-        if (is_null($id)) {
+        if (empty($id)) {
             return;
         }
-        $this->elasticClient->iterateStores(function () use ($id) {
-            $this->elasticClient->delete($id);
+        $this->elasticClient->iterateStores(function ($store) use ($id) {
+            $product = $this->productRepository->getById($id, false, $store->getId());
+            $this->elasticClient->delete($id, $product->getUrlKey());
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
@@ -141,7 +135,7 @@ class Product
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
                     $this->updateProduct($product, $store);
                 }
-            }, self::INDEX, Constants::PRODUCT_STRUC);
+            }, self::INDEX, Constants::PRODUCT_STRUC, true);
         });
     }
 
@@ -149,7 +143,7 @@ class Product
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
-        if (is_null($id)) {
+        if (empty($id)) {
             $this->logger->error('can not update category because the id is not set');
             return;
         }
@@ -170,8 +164,10 @@ class Product
 
         $this->elasticClient->update([
             'id' => $id,
-            'url' => $product->getUrlKey(),
-            'sku' => $product->getSku(),
+            'url' => strtolower($product->getUrlKey()),
+            'sku' => strtolower($product->getSku()),
+            'name' => strtolower($product->getName()),
+            'visibility' => intval($product->getVisibility()),
             'search' => $search,
             'product' => $data
         ]);
@@ -307,7 +303,7 @@ class Product
 
     private function processNullableFloat($data)
     {
-        if (is_null($data)) {
+        if (empty($data)) {
             return null;
         } else {
             return floatval($data);

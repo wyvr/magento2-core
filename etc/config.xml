@@ -6,12 +6,35 @@
                 <enabled>1</enabled>
                 <level>100</level>
             </logging>
+            <settings>
+                <included_paths>design
+dev
+web/default
+currency
+tax
+general/locale
+contact
+csp
+trans_email
+google
+shipping
+multishipping
+login_as_customer
+newsletter
+sitemap
+sendfriend
+wishlist
+wyvr</included_paths>
+            </settings>
             <product>
                 <index_attributes>name,description</index_attributes>
             </product>
             <category>
                 <index_attributes>name,description</index_attributes>
             </category>
+            <page>
+                <index_attributes>content_heading,meta_description</index_attributes>
+            </page>
         </wyvr>
     </default>
 </config>

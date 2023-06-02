@@ -24,15 +24,23 @@ class Constants
         ],
         'url' => [
             'type' => 'keyword',
-            'index' => true
+            'index' => true,
         ],
         'sku' => [
             'type' => 'keyword',
+            'index' => true,
+        ],
+        'name' => [
+            'type' => 'keyword',
+            'index' => true,
+        ],
+        'visibility' => [
+            'type' => 'integer',
             'index' => true
         ],
         'search' => [
             'type' => 'text',
-            'index' => true
+            'index' => true,
         ],
         'product' => [
             'type' => 'object',
@@ -48,13 +56,83 @@ class Constants
         ],
         'url' => [
             'type' => 'keyword',
-            'index' => true
+            'index' => true,
+        ],
+        'name' => [
+            'type' => 'keyword',
+            'index' => true,
+        ],
+        'is_active' => [
+            'type' => 'boolean',
+            'index' => true,
         ],
         'search' => [
             'type' => 'text',
-            'index' => true
+            'index' => true,
         ],
         'category' => [
+            'type' => 'object',
+            'dynamic' => false
+        ]
+    ];
+    const PAGE_INDEX_ATTRIBUTES = "wyvr/page/index_attributes";
+    const PAGE_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'url' => [
+            'type' => 'keyword',
+            'index' => true,
+        ],
+        'is_active' => [
+            'type' => 'boolean',
+            'index' => true,
+        ],
+        'search' => [
+            'type' => 'text',
+            'index' => true,
+        ],
+        'page' => [
+            'type' => 'object',
+            'dynamic' => false
+        ]
+    ];
+    const BLOCK_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'identifier' => [
+            'type' => 'keyword',
+            'index' => true,
+        ],
+        'is_active' => [
+            'type' => 'boolean',
+            'index' => true,
+        ],
+        'block' => [
+            'type' => 'object',
+            'dynamic' => false
+        ]
+    ];
+    const CACHE_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'products' => [
+            'type' => 'object',
+            'dynamic' => false
+        ]
+    ];
+
+    const SETTINGS_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'value' => [
             'type' => 'object',
             'dynamic' => false
         ]
