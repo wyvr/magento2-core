@@ -45,6 +45,14 @@ class Constants
         'product' => [
             'type' => 'object',
             'dynamic' => false
+        ],
+        'created_at' => [
+            'type' => 'date',
+            'format' => 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis'
+        ],
+        'updated_at' => [
+            'type' => 'date',
+            'format' => 'yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis'
         ]
     ];
 

@@ -169,7 +169,9 @@ class Product
             'name' => strtolower($product->getName()),
             'visibility' => intval($product->getVisibility()),
             'search' => $search,
-            'product' => $data
+            'product' => $data,
+            'created_at' => $data['created_at'],
+            'updated_at' => $data['updated_at']
         ]);
     }
 
