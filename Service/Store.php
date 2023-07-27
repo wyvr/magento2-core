@@ -9,21 +9,14 @@ use Wyvr\Core\Logger\Logger;
 class Store
 {
     protected static array $stores;
-    private StoreManagerInterface $storeManager;
-    private Logger $logger;
-    private ScopeConfigInterface $scopeConfig;
 
     public function __construct(
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface  $scopeConfig,
-        Logger                $logger,
+        protected StoreManagerInterface $storeManager,
+        protected ScopeConfigInterface  $scopeConfig,
+        protected Logger                $logger,
     )
     {
-        $this->storeManager = $storeManager;
-        $this->logger = $logger;
-        $this->scopeConfig = $scopeConfig;
         $this::$stores = $this->storeManager->getStores();
-
     }
 
     public function iterate(callable $callback): void
@@ -37,7 +30,7 @@ class Store
             try {
                 $callback($store);
             } catch (\Exception $exception) {
-                $this->logger->error('error in callback for store iterate ' . $store_id . ' ' . $exception->getMessage());
+                $this->logger->error(__('error in callback for store iterate %1, %2', $store_id, $exception->getMessage()));
             }
         }
     }

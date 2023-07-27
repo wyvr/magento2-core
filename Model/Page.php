@@ -21,65 +21,26 @@ class Page
 {
     private const INDEX = 'page';
 
-    protected ScopeConfigInterface $scopeConfig;
-    private Logger $logger;
-    protected PageRepositoryInterface $pageRepositoryInterface;
-    protected StoreManagerInterface $storeManager;
-    protected ElasticClient $elasticClient;
-    protected FilterProvider $templateProcessor;
-
     public function __construct(
-        ScopeConfigInterface    $scopeConfig,
-        Logger                  $logger,
-        PageRepositoryInterface $pageRepositoryInterface,
-        StoreManagerInterface   $storeManager,
-        ElasticClient           $elasticClient,
-        SearchCriteriaBuilder   $searchCriteriaBuilder,
-        FilterProvider          $templateProcessor
+        protected ScopeConfigInterface    $scopeConfig,
+        protected Logger                  $logger,
+        protected PageRepositoryInterface $pageRepositoryInterface,
+        protected StoreManagerInterface   $storeManager,
+        protected ElasticClient           $elasticClient,
+        protected SearchCriteriaBuilder   $searchCriteriaBuilder,
+        protected FilterProvider          $templateProcessor,
+        protected Transform               $transform
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->pageRepositoryInterface = $pageRepositoryInterface;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->templateProcessor = $templateProcessor;
-    }
-
-    public function updateSingle($id)
-    {
-        if (empty($id)) {
-            return;
-        }
-        $cms_page = $this->pageRepositoryInterface->getById($id);
-        $this->logger->measure('page update by id "' . $id . '"', function () use ($id, $cms_page) {
-            $store_pages = [];
-            $this->splitToStores($cms_page, $store_pages);
-            $this->updateStorePages($store_pages, false);
-        });
-    }
-
-    public function delete($id)
-    {
-        if (empty($id)) {
-            return;
-        }
-        $cms_page = $this->pageRepositoryInterface->getById($id);
-        $identifier = $cms_page->getIdentifier();
-
-        $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($id, $identifier);
-        }, self::INDEX, Constants::PAGE_STRUC);
     }
 
     public function updateAll($triggerName)
     {
         if (empty($triggerName)) {
-            $this->logger->error('page updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['page', 'update', 'all']);
             return;
         }
-        $this->logger->measure('pages updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['page', 'update', 'all'], function () {
             $store_pages = [];
             array_map(function ($cms_page) use (&$store_pages) {
                 $this->splitToStores($cms_page, $store_pages);
@@ -90,26 +51,51 @@ class Page
         });
     }
 
+    public function updateSingle($id)
+    {
+        if (empty($id)) {
+            $this->logger->error('can not update page because the id is not set', ['page', 'update']);
+            return;
+        }
+        $cms_page = $this->pageRepositoryInterface->getById($id);
+        $this->logger->measure(__('page id "%1"', $id), ['page', 'update'], function () use ($id, $cms_page) {
+            $store_pages = [];
+            $this->splitToStores($cms_page, $store_pages);
+            $this->updateStorePages($store_pages, false);
+        });
+    }
+
+    public function delete($id)
+    {
+        if (empty($id)) {
+            $this->logger->error('can not delete page because the id is not set', ['category', 'delete']);
+            return;
+        }
+        $cms_page = $this->pageRepositoryInterface->getById($id);
+        $identifier = $cms_page->getIdentifier();
+
+        $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
+            $this->elasticClient->delete($id, $identifier);
+        }, self::INDEX, Constants::PAGE_STRUC);
+    }
+
     public function updatePage($page): void
     {
         $id = $page->getId();
         if (empty($id)) {
-            $this->logger->error('can not update page because the id is not set');
+            $this->logger->error('can not update page because the id is not set', ['category', 'update']);
             return;
         }
-        $this->logger->debug('update page ' . $id);
+        $this->logger->debug('update page ' . $id, ['category', 'update']);
 
-        $data = $page->getData();
-        //->getBlockFilter()
-        /*$data['rendered'] = $this->templateProcessor->getPageFilter()
-            ->setStoreId($store_id)
-            ->filter($data['content']);
-        */
-        $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PAGE_INDEX_ATTRIBUTES), $data);
+        $data = $this->transform->convertBoolAttributes($page->getData(), Constants::PAGE_BOOL_ATTRIBUTES);
+
+        $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PAGE_INDEX_ATTRIBUTES), $page->getData());
+
         $this->elasticClient->update([
             'id' => $id,
             'url' => strtolower($page->getIdentifier() ?? ''),
-            'is_active' => $page->getIsActive() === '1',
+            'is_active' => $data['is_active'],
             'search' => $search,
             'page' => $data
         ]);
@@ -131,7 +117,7 @@ class Page
             $store_id = $store->getId();
             $pages = array_merge($store_pages[0] ?? [], $store_pages[$store_id] ?? []);
 
-            $this->logger->info('updated ' . count($pages) . ' pages from store ' . $store_id);
+            $this->logger->info(__('updated %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
 
             foreach ($pages as $page) {
                 $this->updatePage($page);

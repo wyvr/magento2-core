@@ -25,62 +25,34 @@ class Cache
 {
     private const INDEX = 'cache';
 
-    protected ScopeConfigInterface $scopeConfig;
-    protected Logger $logger;
-    protected CategoryCollectionFactory $categoryCollectionFactory;
-    protected ProductCollectionFactory $productCollectionFactory;
-    protected StoreManagerInterface $storeManager;
-    protected ElasticClient $elasticClient;
-    protected WyvrProduct $wyvrProduct;
-    protected Status $productStatus;
-    protected Visibility $productVisibility;
-
     public function __construct(
-        ScopeConfigInterface      $scopeConfig,
-        Logger                    $logger,
-        CategoryCollectionFactory $categoryCollectionFactory,
-        ProductCollectionFactory  $productCollectionFactory,
-        StoreManagerInterface     $storeManager,
-        ElasticClient             $elasticClient,
-        WyvrProduct               $wyvrProduct,
-        Status                    $productStatus,
-        Visibility                $productVisibility,
+        protected ScopeConfigInterface      $scopeConfig,
+        protected Logger                    $logger,
+        protected CategoryCollectionFactory $categoryCollectionFactory,
+        protected ProductCollectionFactory  $productCollectionFactory,
+        protected StoreManagerInterface     $storeManager,
+        protected ElasticClient             $elasticClient,
+        protected WyvrProduct               $wyvrProduct,
+        protected Status                    $productStatus,
+        protected Visibility                $productVisibility,
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->categoryCollectionFactory = $categoryCollectionFactory;
-        $this->productCollectionFactory = $productCollectionFactory;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-        $this->wyvrProduct = $wyvrProduct;
-        $this->productStatus = $productStatus;
-        $this->productVisibility = $productVisibility;
     }
 
     public function updateAll($triggerName)
     {
         if (empty($triggerName)) {
-            $this->logger->error('cache updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['cache', 'update', 'all']);
             return;
         }
 
-        $this->logger->measure('cache updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['cache', 'update', 'all'], function () {
             $this->elasticClient->iterateStores(function ($store) {
                 $storeId = $store->getId();
                 $categories = $this->categoryCollectionFactory->create()
                     ->setStore($store)
                     ->getItems();
 
-                /*$products = $this->productCollectionFactory->create()
-                    ->setStore($store)
-                    ->addAttributeToFilter('status', ['in' => $this->productStatus->getVisibleStatusIds()])
-                    ->setVisibility($this->productVisibility->getVisibleInSiteIds())
-                    ->getItems();
-
-                $products = array_map(function ($p) use ($store) {
-                    return $this->product->getProductData($p, $store->getId());
-                }, $products);*/
                 $products = $this->elasticClient->getIndexData('wyvr_product_' . $storeId);
                 $products_map = [];
 

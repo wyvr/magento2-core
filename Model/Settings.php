@@ -23,44 +23,28 @@ class Settings
 {
     private const INDEX = 'settings';
 
-    protected ScopeConfigInterface $scopeConfig;
-    protected Logger $logger;
-    protected CategoryFactory $categoryFactory;
-    protected CategoryCollectionFactory $categoryCollectionFactory;
-    protected ProductCollectionFactory $productCollectionFactory;
-    protected StoreManagerInterface $storeManager;
-    protected ElasticClient $elasticClient;
-    protected Store $store;
-
     public function __construct(
-        ScopeConfigInterface      $scopeConfig,
-        Logger                    $logger,
-        CategoryFactory           $categoryFactory,
-        CategoryCollectionFactory $categoryCollectionFactory,
-        ProductCollectionFactory  $productCollectionFactory,
-        StoreManagerInterface     $storeManager,
-        ElasticClient             $elasticClient,
-        Store                     $store
+        protected ScopeConfigInterface      $scopeConfig,
+        protected Logger                    $logger,
+        protected CategoryFactory           $categoryFactory,
+        protected CategoryCollectionFactory $categoryCollectionFactory,
+        protected ProductCollectionFactory  $productCollectionFactory,
+        protected StoreManagerInterface     $storeManager,
+        protected ElasticClient             $elasticClient,
+        protected Store                     $store,
+        protected Transform                 $transform
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->categoryFactory = $categoryFactory;
-        $this->categoryCollectionFactory = $categoryCollectionFactory;
-        $this->productCollectionFactory = $productCollectionFactory;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-        $this->store = $store;
     }
 
-    public function updateAll($triggerName)
+    public function updateAll($triggerName): void
     {
         if (empty($triggerName)) {
-            $this->logger->error('settings updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['settings', 'update', 'all']);
             return;
         }
 
-        $this->logger->measure('settings updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['settings', 'update', 'all'], function () {
             $alias = 'wyvr_' . self::INDEX;
             $versions = $this->elasticClient->getVersions($alias, true);
             $index_name = $alias . '_v' . $versions['version'];
@@ -81,16 +65,16 @@ class Settings
         });
     }
 
-    public function getSettings($store_id)
+    public function getSettings($store_id): array
     {
         $included_paths = $this->scopeConfig->getValue('wyvr/settings/included_paths', 'store', $store_id);
         if (!$included_paths) {
-            return;
+            return [];
         }
         $paths = preg_split("/\r\n|\n|\r/", $included_paths);
         if (!is_array($paths) || count($paths) == 0) {
-            $this->logger->warning('No settings paths configured for store ' . $store_id);
-            return;
+            $this->logger->warning(__('no settings paths configured for store %1', $store_id), ['settings', 'get']);
+            return [];
         }
 
         $store_result = [];
@@ -129,5 +113,4 @@ class Settings
         }
         return $store_result;
     }
-
 }

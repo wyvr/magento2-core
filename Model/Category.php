@@ -21,61 +21,29 @@ class Category
 {
     private const INDEX = 'category';
 
-    protected ScopeConfigInterface $scopeConfig;
-    protected Logger $logger;
-    protected CategoryFactory $categoryFactory;
-    protected CategoryCollectionFactory $categoryCollectionFactory;
-    protected ProductCollectionFactory $productCollectionFactory;
-    protected StoreManagerInterface $storeManager;
-    protected ElasticClient $elasticClient;
-
     private array $cacheProductCollection = [];
 
     public function __construct(
-        ScopeConfigInterface      $scopeConfig,
-        Logger                    $logger,
-        CategoryFactory           $categoryFactory,
-        CategoryCollectionFactory $categoryCollectionFactory,
-        ProductCollectionFactory  $productCollectionFactory,
-        StoreManagerInterface     $storeManager,
-        ElasticClient             $elasticClient
+        protected ScopeConfigInterface      $scopeConfig,
+        protected Logger                    $logger,
+        protected CategoryFactory           $categoryFactory,
+        protected CategoryCollectionFactory $categoryCollectionFactory,
+        protected ProductCollectionFactory  $productCollectionFactory,
+        protected StoreManagerInterface     $storeManager,
+        protected ElasticClient             $elasticClient,
+        protected Transform                 $transform
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->categoryFactory = $categoryFactory;
-        $this->categoryCollectionFactory = $categoryCollectionFactory;
-        $this->productCollectionFactory = $productCollectionFactory;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-    }
-
-    public function updateSingle($id)
-    {
-        if (empty($id)) {
-            return;
-        }
-        $this->logger->measure('category update by id "' . $id . '"', function () use ($id) {
-            $this->elasticClient->iterateStores(function ($store) use ($id) {
-                $category = $this->categoryCollectionFactory->create()
-                    ->setStore($store)
-                    ->addAttributeToSelect('*')
-                    ->addFieldToFilter('entity_id', $id)
-                    ->getFirstItem();
-
-                $this->updateCategory($category, $store);
-            }, self::INDEX, Constants::CATEGORY_STRUC);
-        });
     }
 
     public function updateAll($triggerName)
     {
         if (empty($triggerName)) {
-            $this->logger->error('category updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['category', 'update', 'all']);
             return;
         }
 
-        $this->logger->measure('category updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['category', 'update', 'all'], function () {
             $this->elasticClient->iterateStores(function ($store) {
                 $categories = $this->categoryCollectionFactory->create()
                     ->setStore($store)
@@ -91,20 +59,35 @@ class Category
         });
     }
 
+    public function updateSingle($id)
+    {
+        if (empty($id)) {
+            $this->logger->error('missing id', ['category', 'update']);
+            return;
+        }
+        $this->logger->measure(__('category id "%1"', $id), ['category', 'update'], function () use ($id) {
+            $this->elasticClient->iterateStores(function ($store) use ($id) {
+                $category = $this->categoryCollectionFactory->create()
+                    ->setStore($store)
+                    ->addAttributeToSelect('*')
+                    ->addFieldToFilter('entity_id', $id)
+                    ->getFirstItem();
+
+                $this->updateCategory($category, $store);
+            }, self::INDEX, Constants::CATEGORY_STRUC);
+        });
+    }
+
+
     public function updateCategory($category, $store)
     {
         $id = $category->getEntityId();
         if (empty($id)) {
-            $this->logger->error('can not update category because the id is not set');
+            $this->logger->error('can not update category because the id is not set', ['category', 'update']);
             return;
         }
-        $data = $category->getData();
-        // convert known attributes to bool
-        foreach (['is_active', 'is_anchor', 'include_in_menu'] as $attr) {
-            if (array_key_exists($attr, $data)) {
-                $data[$attr] = $data[$attr] === '1';
-            }
-        }
+        $data = $this->transform->convertBoolAttributes($category->getData(), Constants::CATEGORY_BOOL_ATTRIBUTES);
+
         // load products only for active categories
         if (array_key_exists('is_active', $data) && $data['is_active']) {
             $data['products'] = $this->getProductsOfCategory($id, $store);
@@ -112,9 +95,9 @@ class Category
 
         $this->elasticClient->update([
             'id' => $id,
-            'url' => strtolower($category->getUrlPath()??''),
-            'name' => strtolower($category->getName()??''),
-            'is_active' => $category->getIsActive() === '1',
+            'url' => strtolower($category->getUrlPath() ?? ''),
+            'name' => strtolower($category->getName() ?? ''),
+            'is_active' => $data['is_active'],
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => $data
         ]);
@@ -145,6 +128,7 @@ class Category
     public function delete($id)
     {
         if (empty($id)) {
+            $this->logger->error('can not delete category because the id is not set', ['category', 'delete']);
             return;
         }
         $this->elasticClient->iterateStores(function ($store) use ($id) {

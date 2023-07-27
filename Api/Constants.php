@@ -83,6 +83,7 @@ class Constants
             'dynamic' => false
         ]
     ];
+    const CATEGORY_BOOL_ATTRIBUTES = ['is_active', 'is_anchor', 'include_in_menu'];
     const PAGE_INDEX_ATTRIBUTES = "wyvr/page/index_attributes";
     const PAGE_STRUC = [
         'id' => [
@@ -106,6 +107,8 @@ class Constants
             'dynamic' => false
         ]
     ];
+    const PAGE_BOOL_ATTRIBUTES = ['is_active'];
+
     const BLOCK_STRUC = [
         'id' => [
             'type' => 'keyword',
@@ -124,6 +127,7 @@ class Constants
             'dynamic' => false
         ]
     ];
+    const BLOCK_BOOL_ATTRIBUTES = ['is_active'];
     const CACHE_STRUC = [
         'id' => [
             'type' => 'keyword',

@@ -20,30 +20,17 @@ class Block
 {
     private const INDEX = 'block';
 
-    protected ScopeConfigInterface $scopeConfig;
-    private Logger $logger;
-    protected BlockRepositoryInterface $blockRepositoryInterface;
-    protected StoreManagerInterface $storeManager;
-    protected ElasticClient $elasticClient;
-    protected FilterProvider $templateProcessor;
-
     public function __construct(
-        ScopeConfigInterface    $scopeConfig,
-        Logger                  $logger,
-        BlockRepositoryInterface $blockRepositoryInterface,
-        StoreManagerInterface   $storeManager,
-        ElasticClient           $elasticClient,
-        SearchCriteriaBuilder   $searchCriteriaBuilder,
-        FilterProvider          $templateProcessor
+        protected ScopeConfigInterface     $scopeConfig,
+        protected Logger                   $logger,
+        protected BlockRepositoryInterface $blockRepositoryInterface,
+        protected StoreManagerInterface    $storeManager,
+        protected ElasticClient            $elasticClient,
+        protected SearchCriteriaBuilder    $searchCriteriaBuilder,
+        protected FilterProvider           $templateProcessor,
+        protected Transform                $transform
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->blockRepositoryInterface = $blockRepositoryInterface;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->templateProcessor = $templateProcessor;
     }
 
     public function updateSingle($id)
@@ -52,7 +39,7 @@ class Block
             return;
         }
         $cms_block = $this->blockRepositoryInterface->getById($id);
-        $this->logger->measure('block update by id "' . $id . '"', function () use ($id, $cms_block) {
+        $this->logger->measure(__('block id "%1"', $id), ['block, update'], function () use ($id, $cms_block) {
             $store_blocks = [];
             $this->splitToStores($cms_block, $store_blocks);
             $this->updateStoreBlocks($store_blocks, false);
@@ -75,17 +62,16 @@ class Block
     public function updateAll($triggerName)
     {
         if (empty($triggerName)) {
-            $this->logger->error('block updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['block', 'update', 'all']);
             return;
         }
         $blocks = $this->blockRepositoryInterface->getList($this->searchCriteriaBuilder->create())
             ->getItems();
-        $this->logger->measure('block updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['block', 'update', 'all'], function () use ($blocks) {
             $store_blocks = [];
             array_map(function ($cms_block) use (&$store_blocks) {
                 $this->splitToStores($cms_block, $store_blocks);
-            }, $this->blockRepositoryInterface->getList($this->searchCriteriaBuilder->create())
-                ->getItems());
+            }, $blocks);
 
             $this->updateStoreBlocks($store_blocks, true);
         });
@@ -95,21 +81,17 @@ class Block
     {
         $id = $block->getId();
         if (empty($id)) {
-            $this->logger->error('can not update block because the id is not set');
+            $this->logger->error('can not update block because the id is not set', ['block', 'update']);
             return;
         }
-        $this->logger->debug('update block ' . $id);
+        $this->logger->debug(__('update block %1', $id), ['block', 'update']);
 
-        $data = $block->getData();
-        //->getBlockFilter()
-        /*$data['rendered'] = $this->templateProcessor->getblockFilter()
-            ->setStoreId($store_id)
-            ->filter($data['content']);
-        */
+        $data = $this->transform->convertBoolAttributes($block->getData(), Constants::BLOCK_BOOL_ATTRIBUTES);
+
         $this->elasticClient->update([
             'id' => $id,
             'identifier' => strtolower($block->getIdentifier() ?? ''),
-            'is_active' => $block->getIsActive() === '1',
+            'is_active' => $data['is_active'],
             'block' => $data
         ]);
     }
@@ -130,7 +112,7 @@ class Block
             $store_id = $store->getId();
             $blocks = array_merge($store_blocks[0] ?? [], $store_blocks[$store_id] ?? []);
 
-            $this->logger->info('updated ' . count($blocks) . ' blocks from store ' . $store_id);
+            $this->logger->info(__('updated %1 blocks from store %2', count($blocks), $store_id), ['block', 'update', 'store']);
 
             foreach ($blocks as $block) {
                 $this->updateBlock($block);

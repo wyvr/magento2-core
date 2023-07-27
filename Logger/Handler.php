@@ -12,20 +12,17 @@ use Wyvr\Core\Api\Constants;
 
 class Handler extends \Magento\Framework\Logger\Handler\Base
 {
-    protected $scopeConfig;
-
     protected $loggerType;
 
     private $enabled;
 
     public function __construct(
-        ScopeConfigInterface $scopeConfig,
+        protected ScopeConfigInterface $scopeConfig,
         DriverInterface      $filesystem,
         string               $filePath = null,
         string               $fileName = null
     )
     {
-        $this->scopeConfig = $scopeConfig;
         if (is_null($filePath)) {
             $filePath = '.' . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
         } else {

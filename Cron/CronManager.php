@@ -19,54 +19,18 @@ use Wyvr\Core\Model\Settings;
 
 class CronManager
 {
-    /** @var Logger */
-    protected $logger;
-
-    /** @var StoreManagerInterface */
-    protected $storeManager;
-
-    /** @var ScopeConfigInterface */
-    protected $scopeConfig;
-
-    /** @var Category */
-    protected $category;
-
-    /** @var Product */
-    protected $product;
-
-    /** @var Page */
-    protected $page;
-
-    /** @var Block */
-    protected $block;
-
-    /** @var Cache */
-    protected $cache;
-
-    /** @var Settings */
-    protected $settings;
-
     public function __construct(
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface  $scopeConfig,
-        Logger                $logger,
-        Category              $category,
-        Product               $product,
-        Block                 $block,
-        Page                  $page,
-        Cache                 $cache,
-        Settings              $settings,
+        protected StoreManagerInterface $storeManager,
+        protected ScopeConfigInterface  $scopeConfig,
+        protected Logger                $logger,
+        protected Category              $category,
+        protected Product               $product,
+        protected Block                 $block,
+        protected Page                  $page,
+        protected Cache                 $cache,
+        protected Settings              $settings,
     )
     {
-        $this->storeManager = $storeManager;
-        $this->logger = $logger;
-        $this->scopeConfig = $scopeConfig;
-        $this->category = $category;
-        $this->product = $product;
-        $this->page = $page;
-        $this->block = $block;
-        $this->cache = $cache;
-        $this->settings = $settings;
     }
 
     public function rebuild(): void

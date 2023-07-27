@@ -23,107 +23,31 @@ class Product
 {
     private const INDEX = 'product';
 
-    protected ScopeConfigInterface $scopeConfig;
-    private Logger $logger;
-    protected ProductCollectionFactory $productCollectionFactory;
-    protected ProductAttributeManagementInterface $productAttributeManagement;
-    protected RuleFactory $catalogRuleFactory;
-    protected StoreManagerInterface $storeManager;
-    protected LinkManagementInterface $linkManagement;
-    protected StockItemRepository $stockItemRepository;
-    protected ElasticClient $elasticClient;
-    protected Category $category;
-    protected ProductRepository $productRepository;
-
     public function __construct(
-        ScopeConfigInterface                $scopeConfig,
-        Logger                              $logger,
-        ProductCollectionFactory            $productCollectionFactory,
-        ProductAttributeManagementInterface $productAttributeManagement,
-        RuleFactory                         $catalogRuleFactory,
-        StoreManagerInterface               $storeManager,
-        ElasticClient                       $elasticClient,
-        LinkManagementInterface             $linkManagement,
-        StockItemRepository                 $stockItemRepository,
-        ProductRepository                   $productRepository,
-        Category                            $category
+        protected ScopeConfigInterface                $scopeConfig,
+        protected Logger                              $logger,
+        protected ProductCollectionFactory            $productCollectionFactory,
+        protected ProductAttributeManagementInterface $productAttributeManagement,
+        protected RuleFactory                         $catalogRuleFactory,
+        protected StoreManagerInterface               $storeManager,
+        protected ElasticClient                       $elasticClient,
+        protected LinkManagementInterface             $linkManagement,
+        protected StockItemRepository                 $stockItemRepository,
+        protected ProductRepository                   $productRepository,
+        protected Category                            $category,
+        protected Transform                           $transform
     )
     {
-        $this->scopeConfig = $scopeConfig;
-        $this->logger = $logger;
-        $this->productCollectionFactory = $productCollectionFactory;
-        $this->productAttributeManagement = $productAttributeManagement;
-        $this->catalogRuleFactory = $catalogRuleFactory;
-        $this->storeManager = $storeManager;
-        $this->elasticClient = $elasticClient;
-        $this->linkManagement = $linkManagement;
-        $this->stockItemRepository = $stockItemRepository;
-        $this->productRepository = $productRepository;
-        $this->category = $category;
     }
-
-    public function updateSingle($id, $prev_category_ids = [])
-    {
-        if (empty($id)) {
-            return;
-        }
-        $this->logger->measure('product update by id "' . $id . '"', function () use ($id, $prev_category_ids) {
-            $affected_category_ids = [];
-
-            $this->elasticClient->iterateStores(function ($store) use ($id, $prev_category_ids, &$affected_category_ids) {
-                $product = $this->productRepository->getById($id, false, $store->getId());
-                if (is_array($prev_category_ids) && count($prev_category_ids)) {
-                    $category_ids = $product->getCategoryIds();
-                    $prev_category_ids;
-                    $affected_category_ids = array_merge($affected_category_ids, array_diff($category_ids, $prev_category_ids), array_diff($prev_category_ids, $category_ids));
-                }
-                $this->updateProduct($product, $store);
-            }, self::INDEX, Constants::PRODUCT_STRUC);
-
-            $affected_category_ids = array_unique($affected_category_ids);
-            if (count($affected_category_ids) > 0) {
-                $this->logger->info('affected category ids ' . join(',', $affected_category_ids));
-                foreach ($affected_category_ids as $id) {
-                    $this->category->updateSingle($id);
-                }
-            }
-        });
-    }
-
-    public function updateSingleBySku($sku)
-    {
-        if (empty($sku)) {
-            return;
-        }
-        $this->logger->measure('product update by sku "' . $sku . '"', function () use ($sku) {
-            $this->elasticClient->iterateStores(function ($store) use ($sku) {
-                $product = $this->productRepository->get($sku, false, $store->getId());
-
-                $this->updateProduct($product, $store);
-            }, self::INDEX, Constants::PRODUCT_STRUC);
-        });
-    }
-
-    public function delete($id)
-    {
-        if (empty($id)) {
-            return;
-        }
-        $this->elasticClient->iterateStores(function ($store) use ($id) {
-            $product = $this->productRepository->getById($id, false, $store->getId());
-            $this->elasticClient->delete($id, $product->getUrlKey());
-        }, self::INDEX, Constants::PRODUCT_STRUC);
-    }
-
 
     public function updateAll($triggerName)
     {
         if (empty($triggerName)) {
-            $this->logger->error('category updateAll No trigger name specified');
+            $this->logger->error('no trigger name specified', ['product', 'update', 'all']);
             return;
         }
 
-        $this->logger->measure('product updateAll "' . $triggerName . '"', function () {
+        $this->logger->measure($triggerName, ['product', 'update', 'all'], function () {
             $this->elasticClient->iterateStores(function ($store) {
                 $products = $this->productCollectionFactory->create()
                     ->setStore($store)
@@ -139,15 +63,70 @@ class Product
         });
     }
 
+    public function updateSingle($id, $prev_category_ids = [])
+    {
+        if (empty($id)) {
+            $this->logger->error('can not update product because the id is not set', ['product', 'update']);
+            return;
+        }
+        $this->logger->measure(__('product id "%1"', $id), ['product', 'update'], function () use ($id, $prev_category_ids) {
+            $affected_category_ids = [];
+
+            $this->elasticClient->iterateStores(function ($store) use ($id, $prev_category_ids, &$affected_category_ids) {
+                $product = $this->productRepository->getById($id, false, $store->getId());
+                if (is_array($prev_category_ids) && count($prev_category_ids)) {
+                    $category_ids = $product->getCategoryIds();
+                    $affected_category_ids = array_merge($affected_category_ids, array_diff($category_ids, $prev_category_ids), array_diff($prev_category_ids, $category_ids));
+                }
+                $this->updateProduct($product, $store);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            $affected_category_ids = array_unique($affected_category_ids);
+            if (count($affected_category_ids) > 0) {
+                $this->logger->info(__('affected category ids %1', join(',', $affected_category_ids)), ['product', 'update']);
+                foreach ($affected_category_ids as $id) {
+                    $this->category->updateSingle($id);
+                }
+            }
+        });
+    }
+
+    public function updateSingleBySku($sku)
+    {
+        if (empty($sku)) {
+            $this->logger->error('can not update product because the sku is not set', ['product', 'update']);
+            return;
+        }
+        $this->logger->measure(__('product sku "%1"', $sku), ['product', 'update'], function () use ($sku) {
+            $this->elasticClient->iterateStores(function ($store) use ($sku) {
+                $product = $this->productRepository->get($sku, false, $store->getId());
+
+                $this->updateProduct($product, $store);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
+    }
+
+    public function delete($id)
+    {
+        if (empty($id)) {
+            $this->logger->error('can not delete product because the id is not set', ['product', 'delete']);
+            return;
+        }
+        $this->elasticClient->iterateStores(function ($store) use ($id) {
+            $product = $this->productRepository->getById($id, false, $store->getId());
+            $this->elasticClient->delete($id, $product->getUrlKey());
+        }, self::INDEX, Constants::PRODUCT_STRUC);
+    }
+
     public function updateProduct($product, $store)
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
         if (empty($id)) {
-            $this->logger->error('can not update category because the id is not set');
+            $this->logger->error('can not update product because the id is not set', ['product', 'update']);
             return;
         }
-        $this->logger->debug('update product ' . $id);
+        $this->logger->debug(__('update product %1', $id), ['product', 'update']);
 
         $data = $this->getProductData($product, $storeId);
         $data['cross_sell_products'] = array_map(function ($p) use ($storeId) {
@@ -183,7 +162,7 @@ class Product
         try {
             $data['stock'] = $this->stockItemRepository->get($product->getId())->getData();
         } catch (\Exception $exception) {
-            $this->logger->error(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()));
+            $this->logger->error(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
         }
         // add the categories
         $data['category_ids'] = $product->getCategoryIds();
@@ -196,7 +175,6 @@ class Product
 
     public function appendConfigurables(&$data, $product, $storeId)
     {
-
         if ($product->getTypeId() !== 'configurable') {
             return;
         }
@@ -247,19 +225,18 @@ class Product
                 $name = null;
                 $type = $attribute->getFrontendInput();
                 if ($type === 'select') {
-                    $name = $this->processSelect($attrData, $attribute);
+                    $name = $this->transform->toSelect($attrData, $attribute);
                 } elseif ($type === 'boolean') {
-                    $name = $attrData === '1';
+                    $name = $this->transform->toBool($attrData);
                 } elseif ($type === 'multiselect') {
-                    $name = $this->processMultiselect($attrData, $attribute);
+                    $name = $this->transform->toMultiselect($attrData, $attribute);
                 } elseif ($type === 'price') {
-                    $name = $this->processNullableFloat($attrData);
+                    $name = $this->transform->toNullableFloat($attrData);
                 } elseif ($type === 'date') {
                     $name = $attrData;
                 } elseif ($type === 'weight') {
-                    $name = $this->processNullableFloat($attrData);
+                    $name = $this->transform->toNullableFloat($attrData);
                 }
-
 
                 $data[$attrCode] = ['value' => $attrData];
                 $has_additional_data = false;
@@ -278,42 +255,4 @@ class Product
         }
     }
 
-    private function processMultiselect($data, $attribute)
-    {
-        $splitValues = explode(',', $data);
-        $label = "";
-        foreach ($splitValues as $value) {
-            $singleLabel = $this->processSelect($value, $attribute);
-            if ($singleLabel) {
-                $label .= $singleLabel . ', ';
-            }
-        }
-        return trim(trim($label), ',');
-    }
-
-    private function processSelect($data, $attribute)
-    {
-        $option = array_filter($attribute->getOptions(), function ($value) use ($data) {
-            return $value['value'] && $value['value'] == $data;
-        });
-
-        if (!$option || !is_array($option) || count($option) <= 0) {
-            return '';
-        }
-
-        $label = reset($option)['label'];
-        if (is_a($label, 'Magento\Framework\Phrase')) {
-            return $label->getText();
-        }
-        return $label;
-    }
-
-    private function processNullableFloat($data)
-    {
-        if (empty($data)) {
-            return null;
-        } else {
-            return floatval($data);
-        }
-    }
 }
