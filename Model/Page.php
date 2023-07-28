@@ -117,7 +117,7 @@ class Page
             $store_id = $store->getId();
             $pages = array_merge($store_pages[0] ?? [], $store_pages[$store_id] ?? []);
 
-            $this->logger->info(__('updated %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
+            $this->logger->info(__('update %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
 
             foreach ($pages as $page) {
                 $this->updatePage($page);

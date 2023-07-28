@@ -112,7 +112,7 @@ class Block
             $store_id = $store->getId();
             $blocks = array_merge($store_blocks[0] ?? [], $store_blocks[$store_id] ?? []);
 
-            $this->logger->info(__('updated %1 blocks from store %2', count($blocks), $store_id), ['block', 'update', 'store']);
+            $this->logger->info(__('update %1 blocks from store %2', count($blocks), $store_id), ['block', 'update', 'store']);
 
             foreach ($blocks as $block) {
                 $this->updateBlock($block);

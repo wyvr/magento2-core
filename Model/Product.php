@@ -53,7 +53,7 @@ class Product
                     ->setStore($store)
                     ->getItems();
 
-                $this->logger->info('updated ' . count($products) . ' products from store ' . $store->getId());
+                $this->logger->info(__('update %1 products from store %2', count($products), $store->getId()), ['product', 'update', 'all']);
 
                 foreach ($products as $p) {
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());

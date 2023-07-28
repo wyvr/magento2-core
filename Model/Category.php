@@ -50,7 +50,7 @@ class Category
                     ->addAttributeToSelect('*')
                     ->getItems();
 
-                $this->logger->info('updated ' . count($categories) . ' categories from store ' . $store->getId());
+                $this->logger->info(__('update %1 categories from store %2', count($categories), $store->getId()), ['category', 'update', 'all']);
 
                 foreach ($categories as $category) {
                     $this->updateCategory($category, $store);
