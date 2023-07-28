@@ -162,7 +162,7 @@ class Product
         try {
             $data['stock'] = $this->stockItemRepository->get($product->getId())->getData();
         } catch (\Exception $exception) {
-            $this->logger->error(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
+            $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
         }
         // add the categories
         $data['category_ids'] = $product->getCategoryIds();
