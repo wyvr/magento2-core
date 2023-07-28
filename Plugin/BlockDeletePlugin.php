@@ -12,13 +12,10 @@ use Magento\Cms\Controller\Adminhtml\Block\Delete;
 
 class BlockDeletePlugin
 {
-    protected $block;
-
     public function __construct(
-        Block $block
+        protected Block $block
     )
     {
-        $this->block = $block;
     }
 
     public function afterExecute(

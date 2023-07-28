@@ -11,18 +11,17 @@ use Wyvr\Core\Model\Category;
 
 class CategoryDeletePlugin
 {
-    protected $category;
-
     public function __construct(
-        Category $category
-    ) {
-        $this->category = $category;
+        protected Category $category
+    )
+    {
     }
 
     public function afterExecute(
         \Magento\Catalog\Controller\Adminhtml\Category\Delete $subject,
-        $result
-    ) {
+                                                              $result
+    )
+    {
         $entityId = $subject->getRequest()->getParam('id');
 
         $this->category->delete($entityId);

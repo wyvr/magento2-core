@@ -11,18 +11,17 @@ use Wyvr\Core\Model\Product;
 
 class ProductCopyPlugin
 {
-    protected $product;
-
     public function __construct(
-        Product $product
-    ) {
-        $this->product = $product;
+        protected Product $product
+    )
+    {
     }
 
     public function afterCopy(
         \Magento\Catalog\Model\Product\Copier $subject,
-        $result
-    ) {
+                                              $result
+    )
+    {
         $productId = $result->getEntityId();
         $this->product->updateSingle($productId);
         return $result;

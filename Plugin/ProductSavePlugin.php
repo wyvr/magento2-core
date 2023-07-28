@@ -13,21 +13,19 @@ use Magento\Catalog\Controller\Adminhtml\Product\Save;
 
 class ProductSavePlugin
 {
-    protected $product;
-    protected $productRepository;
     private $category_ids;
 
     public function __construct(
-        Product           $product,
-        ProductRepository $productRepository
-    ) {
-        $this->product = $product;
-        $this->productRepository = $productRepository;
+        protected Product           $product,
+        protected ProductRepository $productRepository
+    )
+    {
     }
 
     public function beforeExecute(
         Save $subject
-    ) {
+    )
+    {
         $id = $subject->getRequest()->getParam('id');
         $product = $this->productRepository->getById($id);
         $this->category_ids = $product->getCategoryIds();
@@ -36,8 +34,9 @@ class ProductSavePlugin
 
     public function afterExecute(
         Save $subject,
-        $result
-    ) {
+             $result
+    )
+    {
         $productId = $subject->getRequest()->getParam('id');
         $this->product->updateSingle($productId, $this->category_ids);
         return $result;

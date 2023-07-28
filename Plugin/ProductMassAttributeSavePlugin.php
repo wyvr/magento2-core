@@ -14,23 +14,16 @@ use Wyvr\Core\Model\Product;
 
 class ProductMassAttributeSavePlugin
 {
-    protected $product;
-    protected $filter;
-    protected $collectionFactory;
-    protected $productRepository;
     private $ids;
     private $category_ids = [];
 
     public function __construct(
-        Product           $product,
-        Filter            $filter,
-        CollectionFactory $collectionFactory,
-        ProductRepository $productRepository
-    ) {
-        $this->product = $product;
-        $this->filter = $filter;
-        $this->collectionFactory = $collectionFactory;
-        $this->productRepository = $productRepository;
+        protected Product           $product,
+        protected Filter            $filter,
+        protected CollectionFactory $collectionFactory,
+        protected ProductRepository $productRepository
+    )
+    {
     }
 
     public function beforeExecute()
@@ -46,7 +39,8 @@ class ProductMassAttributeSavePlugin
     public function afterExecute(
         $subject,
         $result
-    ) {
+    )
+    {
         foreach ($this->ids as $id) {
             $this->product->updateSingle($id, $this->category_ids[$id]);
         }

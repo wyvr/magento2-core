@@ -13,19 +13,13 @@ use Wyvr\Core\Model\Product;
 
 class ProductMassDeletePlugin
 {
-    protected $product;
-    protected $filter;
-    protected $collectionFactory;
-
     public function __construct(
-        Product           $product,
-        Filter            $filter,
-        CollectionFactory $collectionFactory
+        protected Product           $product,
+        protected Filter            $filter,
+        protected CollectionFactory $collectionFactory
 
-    ) {
-        $this->product = $product;
-        $this->filter = $filter;
-        $this->collectionFactory = $collectionFactory;
+    )
+    {
     }
 
     public function beforeExecute()

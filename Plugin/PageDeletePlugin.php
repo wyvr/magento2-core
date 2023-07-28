@@ -12,13 +12,10 @@ use Magento\Cms\Controller\Adminhtml\Page\Delete;
 
 class PageDeletePlugin
 {
-    protected $page;
-
     public function __construct(
-        Page $page
+        protected Page $page
     )
     {
-        $this->page = $page;
     }
 
     public function afterExecute(

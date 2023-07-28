@@ -12,21 +12,18 @@ use Wyvr\Core\Model\Product;
 
 class ProductImportPlugin
 {
-    protected $product;
-    protected $category;
-
     public function __construct(
-        Product $product,
-        Category $category,
-    ) {
-        $this->product = $product;
-        $this->category = $category;
+        protected Product  $product,
+        protected Category $category,
+    )
+    {
     }
 
     public function afterImportSource(
         \Magento\ImportExport\Model\Import $subject,
-        $result
-    ) {
+                                           $result
+    )
+    {
         if ($result && $subject->getEntity() == 'catalog_product') {
             while ($bunch = $subject->getDataSourceModel()->getNextBunch()) {
                 foreach ($bunch as $rowNum => $rowData) {

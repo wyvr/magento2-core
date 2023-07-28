@@ -12,13 +12,10 @@ use Magento\Cms\Controller\Adminhtml\Page\Save;
 
 class PageSavePlugin
 {
-    protected $page;
-
     public function __construct(
-        Page $page
+        protected Page $page
     )
     {
-        $this->page = $page;
     }
 
     public function afterExecute(
@@ -26,7 +23,7 @@ class PageSavePlugin
              $result
     )
     {
-        $page_id =$subject->getRequest()->getParam('page_id');
+        $page_id = $subject->getRequest()->getParam('page_id');
         if ($page_id) {
             $this->page->updateSingle($page_id);
         }
