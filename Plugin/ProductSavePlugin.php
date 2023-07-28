@@ -8,28 +8,22 @@
 namespace Wyvr\Core\Plugin;
 
 use Magento\Catalog\Model\ProductRepository;
+use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
 use Wyvr\Core\Model\Product;
 use Magento\Catalog\Controller\Adminhtml\Product\Save;
 
 class ProductSavePlugin
 {
     private $category_ids;
+    private $id;
 
     public function __construct(
-        protected Product           $product,
-        protected ProductRepository $productRepository
-    )
-    {
-    }
+        protected Product                  $product,
+        protected ProductRepository        $productRepository,
+        protected ProductCollectionFactory $productCollectionFactory,
 
-    public function beforeExecute(
-        Save $subject
     )
     {
-        $id = $subject->getRequest()->getParam('id');
-        $product = $this->productRepository->getById($id);
-        $this->category_ids = $product->getCategoryIds();
-        return null;
     }
 
     public function afterExecute(
@@ -37,8 +31,27 @@ class ProductSavePlugin
              $result
     )
     {
-        $productId = $subject->getRequest()->getParam('id');
-        $this->product->updateSingle($productId, $this->category_ids);
+        $product = null;
+        $id = $subject->getRequest()->getParam('id');
+
+        if (is_null($id)) {
+            // new product
+            $newestProduct = $this->productCollectionFactory->create()->getLastItem();
+            if ($newestProduct->hasData('entity_id')) {
+                $id = $newestProduct->getEntityId();
+                $product = $newestProduct;
+            }
+        }
+        // product was updated
+        if ($id && !$product) {
+            $product = $this->productRepository->getById($id);
+        }
+
+        if ($product) {
+            $categoryIds = $product->getCategoryIds();
+            $this->product->updateSingle($id, $categoryIds);
+        }
+
         return $result;
     }
 }
