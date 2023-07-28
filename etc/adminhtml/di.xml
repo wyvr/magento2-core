@@ -10,6 +10,10 @@
         <plugin name="wyvr_core_plugin_pagedelete" type="Wyvr\Core\Plugin\PageDeletePlugin"/>
     </type>
 
+    <type name="Magento\Config\Controller\Adminhtml\System\Config\Save">
+        <plugin name="wyvr_core_plugin_configsave" type="Wyvr\Core\Plugin\ConfigSavePlugin"/>
+    </type>
+
     <type name="Magento\Cms\Controller\Adminhtml\Block\Save">
         <plugin name="wyvr_core_plugin_blocksave" type="Wyvr\Core\Plugin\BlockSavePlugin"/>
     </type>
