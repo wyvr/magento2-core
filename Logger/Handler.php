@@ -7,6 +7,7 @@
 namespace Wyvr\Core\Logger;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\Filesystem\DirectoryList;
 use Magento\Framework\Filesystem\DriverInterface;
 use Wyvr\Core\Api\Constants;
 
@@ -19,14 +20,16 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
     public function __construct(
         protected ScopeConfigInterface $scopeConfig,
         DriverInterface      $filesystem,
+        protected DirectoryList $directoryList,
         string               $filePath = null,
         string               $fileName = null
     )
     {
+        $root = $directoryList->getRoot();
         if (is_null($filePath)) {
-            $filePath = '.' . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
+            $filePath = $root . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR;
         } else {
-            $filePath = '.' . DIRECTORY_SEPARATOR . ltrim(rtrim($filePath, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            $filePath = $root . DIRECTORY_SEPARATOR . ltrim(rtrim($filePath, DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
         }
         $this->loggerType = $this->isEnabled() ? $this->getLogLevel() : \Monolog\Logger::EMERGENCY;
         parent::__construct($filesystem, $filePath, $fileName);
@@ -37,7 +40,7 @@ class Handler extends \Magento\Framework\Logger\Handler\Base
         if (!is_null($this->enabled)) {
             return $this->enabled;
         }
-        $this->enabled = $this->scopeConfig->getValue(Constants::LOGGING_ENABLED) === '1';
+        $this->enabled = $this->scopeConfig->isSetFlag(Constants::LOGGING_ENABLED);
         return $this->enabled;
     }
 
