@@ -1,17 +1,16 @@
 {
-    "name": "wyvr/core",
+    "name": "wyvr/magento2-core",
     "type": "magento2-module",
     "version": "0.0.0",
-    "description": "wyvr Magento 2 core module",
+    "description": "Magento 2 wyvr Connector Module",
     "keywords": [
-        "composer-installer",
-        "magento",
-        "wyvr"
+        "wyvr",
+        "magento2",
+        "composer-installer"
     ],
     "authors": [
         {
-            "name": "wyvr",
-            "email": "info@wyvr.dev"
+            "name": "wyvr"
         }
     ],
     "require-dev": {
