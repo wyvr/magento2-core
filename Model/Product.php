@@ -18,6 +18,7 @@ use Magento\CatalogInventory\Model\Stock\StockItemRepository;
 use Wyvr\Core\Api\Constants;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
+use Magento\ConfigurableProduct\Model\Product\Type\Configurable as ConfigurableProduct;
 
 class Product
 {
@@ -35,7 +36,8 @@ class Product
         protected StockItemRepository                 $stockItemRepository,
         protected ProductRepository                   $productRepository,
         protected Category                            $category,
-        protected Transform                           $transform
+        protected Transform                           $transform,
+        protected ConfigurableProduct                 $configurableProduct,
     )
     {
     }
@@ -152,6 +154,20 @@ class Product
             'created_at' => $data['created_at'],
             'updated_at' => $data['updated_at']
         ]);
+
+        if ($product->getTypeId() == 'simple') {
+
+            // Get all parent ids of this product
+            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
+
+            if (!empty($parentIds)) {
+                // This means that the simple product is associated with a configurable product, load it
+                $configurableProduct = $this->productRepository->getById($parentIds[0]);
+                $this->logger->debug(__('update configurable product %1', $parentIds[0]), ['product', 'update']);
+                $this->updateProduct($configurableProduct, $store);
+            }
+        }
+
     }
 
     public function getProductData($product, $storeId)
