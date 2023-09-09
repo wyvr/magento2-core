@@ -161,7 +161,7 @@ class Constants
         ],
         'type' => [
             'type' => 'keyword',
-            'index' => false
+            'index' => true
         ]
     ];
 }
