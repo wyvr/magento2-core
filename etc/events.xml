@@ -1,6 +1,6 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
-    <event name="clean_cache_by_tags">
-        <observer name="cache_clean_observer" instance="Wyvr\Core\Observer\CleanCache"/>
+    <event name="adminhtml_cache_flush_system">
+        <observer name="wyvr_clean_cache_observer" instance="Wyvr\Core\Observer\CleanCache"/>
     </event>
 </config>

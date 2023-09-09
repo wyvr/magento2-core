@@ -40,7 +40,7 @@ class Clear
         $this->set($scope, $url, 'delete');
     }
 
-    private function set(string $scope, string $url, string $type)
+    public function set(string $scope, string $url, string $type)
     {
         if (!$scope || !$url || !$type) {
             return;
