@@ -20,6 +20,7 @@ use Wyvr\Core\Service\ElasticClient;
 class Category
 {
     private const INDEX = 'category';
+    private string $indexName;
 
     private array $cacheProductCollection = [];
 
@@ -31,9 +32,11 @@ class Category
         protected ProductCollectionFactory  $productCollectionFactory,
         protected StoreManagerInterface     $storeManager,
         protected ElasticClient             $elasticClient,
-        protected Transform                 $transform
+        protected Transform                 $transform,
+        protected Clear                     $clear
     )
     {
+        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName)
@@ -93,7 +96,7 @@ class Category
             $data['products'] = $this->getProductsOfCategory($id, $store);
         }
 
-        $this->elasticClient->update([
+        $this->elasticClient->update($this->indexName, [
             'id' => $id,
             'url' => strtolower($category->getUrlPath() ?? ''),
             'name' => strtolower($category->getName() ?? ''),
@@ -101,6 +104,8 @@ class Category
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => $data
         ]);
+
+        $this->clear->upsert('category', $category->getUrlPath() ?? '');
     }
 
     public function getProductsOfCategory($id, $store)
@@ -137,7 +142,9 @@ class Category
                 ->addAttributeToSelect('*')
                 ->addFieldToFilter('entity_id', $id)
                 ->getFirstItem();
-            $this->elasticClient->delete($id, $category->getUrlPath());
+            $this->elasticClient->delete($this->indexName, $id);
+            $this->clear->delete('category', $category->getUrlPath() ?? '');
+
         }, self::INDEX, Constants::CATEGORY_STRUC);
     }
 }

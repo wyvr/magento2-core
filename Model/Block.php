@@ -19,6 +19,7 @@ use Wyvr\Core\Service\ElasticClient;
 class Block
 {
     private const INDEX = 'block';
+    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface     $scopeConfig,
@@ -31,6 +32,7 @@ class Block
         protected Transform                $transform
     )
     {
+        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateSingle($id)
@@ -55,7 +57,7 @@ class Block
         $identifier = $cms_page->getIdentifier();
 
         $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($id, $identifier);
+            $this->elasticClient->delete($this->indexName, $id);
         }, self::INDEX, Constants::BLOCK_STRUC);
     }
 
@@ -88,7 +90,7 @@ class Block
 
         $data = $this->transform->convertBoolAttributes($block->getData(), Constants::BLOCK_BOOL_ATTRIBUTES);
 
-        $this->elasticClient->update([
+        $this->elasticClient->update($this->indexName, [
             'id' => $id,
             'identifier' => strtolower($block->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],

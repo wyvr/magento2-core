@@ -149,4 +149,19 @@ class Constants
             'dynamic' => false
         ]
     ];
+
+    const CLEAR_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'scope' => [
+            'type' => 'keyword',
+            'index' => false
+        ],
+        'type' => [
+            'type' => 'keyword',
+            'index' => false
+        ]
+    ];
 }

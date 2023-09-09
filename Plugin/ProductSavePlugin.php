@@ -21,7 +21,6 @@ class ProductSavePlugin
         protected Product                  $product,
         protected ProductRepository        $productRepository,
         protected ProductCollectionFactory $productCollectionFactory,
-
     )
     {
     }

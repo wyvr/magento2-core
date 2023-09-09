@@ -22,6 +22,7 @@ use Wyvr\Core\Service\Store;
 class Settings
 {
     private const INDEX = 'settings';
+    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface      $scopeConfig,
@@ -35,6 +36,7 @@ class Settings
         protected Transform                 $transform
     )
     {
+        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName): void
@@ -45,23 +47,21 @@ class Settings
         }
 
         $this->logger->measure($triggerName, ['settings', 'update', 'all'], function () {
-            $alias = 'wyvr_' . self::INDEX;
-            $versions = $this->elasticClient->getVersions($alias, true);
-            $index_name = $alias . '_v' . $versions['version'];
-            $this->store->iterate(function (StoreInterface $store) use ($index_name) {
-                $store_id = $store->getId();
 
-                $store_result = $this->getSettings($store_id);
+            $versions = $this->elasticClient->getVersions($this->indexName, true);
+            $indexName = $this->indexName . '_v' . $versions['version'];
+            $this->store->iterate(function (StoreInterface $store) use ($indexName) {
+                $storeId = $store->getId();
 
-                $this->elasticClient->setIndexName($index_name);
-                $this->elasticClient->createIndex($index_name, Constants::SETTINGS_STRUC);
-                $this->elasticClient->update([
-                    'id' => $store_id,
-                    'value' => $store_result
+                $storeResult = $this->getSettings($storeId);
+
+                $this->elasticClient->createIndex($indexName, Constants::SETTINGS_STRUC);
+                $this->elasticClient->update($indexName, [
+                    'id' => $storeId,
+                    'value' => $storeResult
                 ]);
-
             });
-            $this->elasticClient->updateAlias($alias, $index_name, $versions['prev_aliases'], $versions['all']);
+            $this->elasticClient->updateAlias($this->indexName, $indexName, $versions['prev_aliases'], $versions['all']);
         });
     }
 

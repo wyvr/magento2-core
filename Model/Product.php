@@ -24,6 +24,8 @@ class Product
 {
     private const INDEX = 'product';
 
+    private string $indexName;
+
     public function __construct(
         protected ScopeConfigInterface                $scopeConfig,
         protected Logger                              $logger,
@@ -38,8 +40,10 @@ class Product
         protected Category                            $category,
         protected Transform                           $transform,
         protected ConfigurableProduct                 $configurableProduct,
+        protected Clear                               $clear
     )
     {
+        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName)
@@ -116,7 +120,9 @@ class Product
         }
         $this->elasticClient->iterateStores(function ($store) use ($id) {
             $product = $this->productRepository->getById($id, false, $store->getId());
-            $this->elasticClient->delete($id, $product->getUrlKey());
+            $this->elasticClient->delete($this->indexName, $id);
+            $this->clear->delete('product', $product->getUrlKey());
+
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
@@ -143,9 +149,11 @@ class Product
 
         $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PRODUCT_INDEX_ATTRIBUTES), $data);
 
-        $this->elasticClient->update([
+        $url = $product->getUrlKey();
+
+        $this->elasticClient->update($this->indexName, [
             'id' => $id,
-            'url' => strtolower($product->getUrlKey()),
+            'url' => strtolower($url),
             'sku' => strtolower($product->getSku()),
             'name' => strtolower($product->getName()),
             'visibility' => intval($product->getVisibility()),
@@ -154,6 +162,9 @@ class Product
             'created_at' => $data['created_at'],
             'updated_at' => $data['updated_at']
         ]);
+
+        // mark the product to be re-executed
+        $this->clear->upsert('product', $url);
 
         if ($product->getTypeId() == 'simple') {
 

@@ -20,6 +20,7 @@ use Wyvr\Core\Service\ElasticClient;
 class Page
 {
     private const INDEX = 'page';
+    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface    $scopeConfig,
@@ -29,9 +30,11 @@ class Page
         protected ElasticClient           $elasticClient,
         protected SearchCriteriaBuilder   $searchCriteriaBuilder,
         protected FilterProvider          $templateProcessor,
-        protected Transform               $transform
+        protected Transform               $transform,
+        protected Clear                   $clear
     )
     {
+        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName)
@@ -75,7 +78,8 @@ class Page
         $identifier = $cms_page->getIdentifier();
 
         $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($id, $identifier);
+            $this->elasticClient->delete($this->indexName, $id);
+            $this->clear->delete('page', $identifier);
         }, self::INDEX, Constants::PAGE_STRUC);
     }
 
@@ -92,13 +96,15 @@ class Page
 
         $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PAGE_INDEX_ATTRIBUTES), $page->getData());
 
-        $this->elasticClient->update([
+        $this->elasticClient->update($this->indexName, [
             'id' => $id,
             'url' => strtolower($page->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],
             'search' => $search,
             'page' => $data
         ]);
+        $this->clear->upsert('page', $page->getIdentifier() ?? '');
+
     }
 
     public function splitToStores($cms_page, &$store_pages): void

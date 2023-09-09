@@ -18,15 +18,13 @@ class PageDeletePlugin
     {
     }
 
-    public function afterExecute(
-        Delete $subject,
-               $result
+    public function beforeExecute(
+        Delete $subject
     )
     {
         $page_id = $subject->getRequest()->getParam('page_id');
         if ($page_id) {
             $this->page->delete($page_id);
         }
-        return $result;
     }
 }
