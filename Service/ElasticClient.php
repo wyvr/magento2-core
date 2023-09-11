@@ -27,8 +27,7 @@ class ElasticClient
         ClientBuilder        $clientBuilder,
         Logger               $logger,
         Store                $store
-    )
-    {
+    ) {
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
         $this->store = $store;
@@ -287,5 +286,13 @@ class ElasticClient
                 $this->elasticSearchClient->indices()->delete(['index' => $deleteIndexName]);
             }
         }
+    }
+
+    public function getIndexName(string $indexName, string|int|null $store): string
+    {
+        if ($store) {
+            return $indexName . '_' . $store;
+        }
+        return $indexName;
     }
 }

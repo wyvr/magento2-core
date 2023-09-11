@@ -120,7 +120,7 @@ class Product
         }
         $this->elasticClient->iterateStores(function ($store) use ($id) {
             $product = $this->productRepository->getById($id, false, $store->getId());
-            $this->elasticClient->delete($this->indexName, $id);
+            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
             $this->clear->delete('product', $product->getUrlKey());
 
         }, self::INDEX, Constants::PRODUCT_STRUC);
@@ -151,7 +151,7 @@ class Product
 
         $url = $product->getUrlKey();
 
-        $this->elasticClient->update($this->indexName, [
+        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $storeId), [
             'id' => $id,
             'url' => strtolower($url),
             'sku' => strtolower($product->getSku()),

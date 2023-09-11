@@ -78,12 +78,12 @@ class Page
         $identifier = $cms_page->getIdentifier();
 
         $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($this->indexName, $id);
+            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
             $this->clear->delete('page', $identifier);
         }, self::INDEX, Constants::PAGE_STRUC);
     }
 
-    public function updatePage($page): void
+    public function updatePage($page, $store): void
     {
         $id = $page->getId();
         if (empty($id)) {
@@ -96,7 +96,7 @@ class Page
 
         $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PAGE_INDEX_ATTRIBUTES), $page->getData());
 
-        $this->elasticClient->update($this->indexName, [
+        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store), [
             'id' => $id,
             'url' => strtolower($page->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],
@@ -126,7 +126,7 @@ class Page
             $this->logger->info(__('update %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
 
             foreach ($pages as $page) {
-                $this->updatePage($page);
+                $this->updatePage($page, $store_id);
             }
         }, self::INDEX, Constants::PAGE_STRUC, $create_new);
     }

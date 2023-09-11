@@ -96,7 +96,7 @@ class Category
             $data['products'] = $this->getProductsOfCategory($id, $store);
         }
 
-        $this->elasticClient->update($this->indexName, [
+        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store->getId()), [
             'id' => $id,
             'url' => strtolower($category->getUrlPath() ?? ''),
             'name' => strtolower($category->getName() ?? ''),
@@ -142,7 +142,7 @@ class Category
                 ->addAttributeToSelect('*')
                 ->addFieldToFilter('entity_id', $id)
                 ->getFirstItem();
-            $this->elasticClient->delete($this->indexName, $id);
+            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
             $this->clear->delete('category', $category->getUrlPath() ?? '');
 
         }, self::INDEX, Constants::CATEGORY_STRUC);

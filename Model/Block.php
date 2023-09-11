@@ -57,7 +57,7 @@ class Block
         $identifier = $cms_page->getIdentifier();
 
         $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($this->indexName, $id);
+            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
         }, self::INDEX, Constants::BLOCK_STRUC);
     }
 
@@ -79,7 +79,7 @@ class Block
         });
     }
 
-    public function updateBlock($block): void
+    public function updateBlock($block, $store): void
     {
         $id = $block->getId();
         if (empty($id)) {
@@ -90,7 +90,7 @@ class Block
 
         $data = $this->transform->convertBoolAttributes($block->getData(), Constants::BLOCK_BOOL_ATTRIBUTES);
 
-        $this->elasticClient->update($this->indexName, [
+        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store), [
             'id' => $id,
             'identifier' => strtolower($block->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],
@@ -117,7 +117,7 @@ class Block
             $this->logger->info(__('update %1 blocks from store %2', count($blocks), $store_id), ['block', 'update', 'store']);
 
             foreach ($blocks as $block) {
-                $this->updateBlock($block);
+                $this->updateBlock($block, $store_id);
             }
         }, self::INDEX, Constants::BLOCK_STRUC, $create_new);
     }
