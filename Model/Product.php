@@ -151,6 +151,30 @@ class Product
 
         $url = $product->getUrlKey();
 
+
+        $parentProducts = [];
+        $parentProductsFull = [];
+        if ($product->getTypeId() == 'simple') {
+            // Get all parent ids of this product
+            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
+            if (!empty($parentIds)) {
+                // This means that the simple product is associated with a configurable product, load it
+                foreach ($parentIds as $parentId) {
+                    $configurableProduct = $this->productRepository->getById($parentId);
+                    $parentProductsFull[] = $configurableProduct;
+                    $parent = [
+                        'id' => $parentId,
+                        'sku' => $configurableProduct->getSku(),
+                        'url_key' => $configurableProduct->getUrlKey(),
+                    ];
+                    $parentProducts[] = $parent;
+                }
+            }
+        }
+        if (!empty($parentProducts)) {
+            $data['parent_products'] = $parentProducts;
+        }
+
         $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $storeId), [
             'id' => $id,
             'url' => strtolower($url),
@@ -166,16 +190,10 @@ class Product
         // mark the product to be re-executed
         $this->clear->upsert('product', $url);
 
-        if ($product->getTypeId() == 'simple') {
-
-            // Get all parent ids of this product
-            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
-
-            if (!empty($parentIds)) {
-                // This means that the simple product is associated with a configurable product, load it
-                $configurableProduct = $this->productRepository->getById($parentIds[0]);
-                $this->logger->debug(__('update configurable product %1', $parentIds[0]), ['product', 'update']);
-                $this->updateProduct($configurableProduct, $store);
+        if (!empty($parentProductsFull)) {
+            foreach ($parentProductsFull as $parentProduct) {
+                $this->logger->debug(__('update configurable product %1', $parentProduct->getId()), ['product', 'update']);
+                $this->updateProduct($parentProduct, $store);
             }
         }
 
