@@ -228,12 +228,38 @@ class ElasticClient
                 'match_all' => []
             ];
             $search['size'] = 10000;
-            //@TODO implement scrolling
+            $search['scroll'] = '10s';
         }
         $result = $this->elasticSearchClient->search($search);
         if (!\array_key_exists('hits', $result) || !\array_key_exists('hits', $result['hits'])) {
             return [];
         }
+
+        $scroll_id = $result['_scroll_id'];
+        if (!$scroll_id) {
+            return $result['hits']['hits'];
+        }
+        $total = $result['hits'] ? $result['hits']['total'] : null;
+        if (!$total) {
+            return $result['hits']['hits'];
+        }
+        $hits = $result['hits']['hits'];
+        while ($scroll_id) {
+            $scroll_result = $this->elasticSearchClient->scroll(['scroll_id' => $scroll_id, 'rest_total_hits_as_int' => true]);
+            if (!$scroll_result) {
+                return $hits;
+            }
+            if (\is_array($scroll_result['hits']) && \is_array($scroll_result['hits']['hits'])) {
+                $hits = array_merge($hits, $scroll_result['hits']['hits']);
+            }
+            if (!array_key_exists('_scroll_id', $scroll_result) || !$scroll_result['_scroll_id']) {
+                return $hits;
+            }
+            if (count($hits) >= $total) {
+                $scroll_id = null;
+            }
+        }
+
         return $result['hits']['hits'];
     }
 
@@ -302,7 +328,7 @@ class ElasticClient
         }
     }
 
-    public function getIndexName(string $indexName, string|int|null $store): string
+    public function getIndexName(string $indexName, string|int|null $store = null): string
     {
         if ($store) {
             return $indexName . '_' . $store;
