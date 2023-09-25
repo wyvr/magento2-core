@@ -87,7 +87,7 @@ class Cache
                         'id' => $category->getId(),
                         'products' => array_values($reduced_products)
                     ];
-                    $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store), $data);
+                    $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $storeId), $data);
                 }
             }, self::INDEX, Constants::CACHE_STRUC, true);
         });
