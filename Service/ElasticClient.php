@@ -259,7 +259,7 @@ class ElasticClient
         return $result;
     }
 
-    public function updateAlias(string $alias, string $indexName, ?array $previousIndexNames, array $deleteIndexNames)
+    public function updateAlias(string $alias, string $indexName, ?array $previousIndexNames, ?array $deleteIndexNames)
     {
         $data = ['body' => [
             'actions' => [
