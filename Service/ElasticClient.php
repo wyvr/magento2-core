@@ -168,12 +168,18 @@ class ElasticClient
             $index_name = $alias . '_v' . $versions['version'];
 
             $this->createIndex($index_name, $structure);
+            $avoid_reupdate = false;
+            // create alias directly to avoid that items will be updated in the alias, which gets created as new index
+            if (!$versions['prev_aliases']) {
+                $this->updateAlias($alias, $index_name);
+                $avoid_reupdate = true;
+            }
             try {
                 $callback($store, $index_name);
             } catch (\Exception $exception) {
                 $this->logger->error('error in callback for store ' . $store_id . ' ' . $exception->getMessage());
             }
-            if ($create_new) {
+            if ($create_new && !$avoid_reupdate) {
                 $this->updateAlias($alias, $index_name, $versions['prev_aliases'], $versions['all']);
             }
         });
@@ -267,7 +273,7 @@ class ElasticClient
         return $result;
     }
 
-    public function updateAlias(string $alias, string $indexName, ?array $previousIndexNames, ?array $deleteIndexNames)
+    public function updateAlias(string $alias, string $indexName, ?array $previousIndexNames = null, ?array $deleteIndexNames = null): void
     {
         $data = ['body' => [
             'actions' => [
