@@ -53,6 +53,7 @@ class Cache
                 $storeId = $store->getId();
                 $categories = $this->categoryCollectionFactory->create()
                     ->setStore($store)
+                    ->addAttributeToSelect('*')
                     ->getItems();
 
                 $products = $this->elasticClient->getIndexData('wyvr_product_' . $storeId);
@@ -64,6 +65,10 @@ class Cache
                 unset($products);
 
                 foreach ($categories as $category) {
+                    // avoid categories without url in cache
+                    if (!$category->getUrlPath()) {
+                        continue;
+                    }
                     $category_products = $category->getProductCollection()
                         ->addAttributeToFilter('status', ['in' => $this->productStatus->getVisibleStatusIds()])
                         ->setVisibility($this->productVisibility->getVisibleInSiteIds())
