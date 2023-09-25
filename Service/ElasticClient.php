@@ -27,7 +27,8 @@ class ElasticClient
         ClientBuilder        $clientBuilder,
         Logger               $logger,
         Store                $store
-    ) {
+    )
+    {
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
         $this->store = $store;
@@ -43,7 +44,7 @@ class ElasticClient
         }
     }
 
-    public function isValid(string $indexName)
+    public function isValid(string $indexName): bool
     {
         if (!$this->isAvailable($indexName)) {
             return false;
@@ -61,7 +62,7 @@ class ElasticClient
         return $exists;
     }
 
-    public function getSearchFromAttributes($attributes, $object)
+    public function getSearchFromAttributes($attributes, $object): array|string
     {
         if (!\is_string($attributes) || !\is_array($object) || \count($object) == 0) {
             return '';
@@ -124,7 +125,7 @@ class ElasticClient
         }
     }
 
-    public function delete(string $indexName, $id)
+    public function delete(string $indexName, $id): void
     {
         if (!$this->isValid($indexName)) {
             return;
@@ -199,14 +200,21 @@ class ElasticClient
 
     /**
      * Destroys the index in elastic search
+     * @param string $indexName
      * @return array|null
      */
-    public function destroy(string $indexName)
+    public function destroy(string $indexName): array
     {
-        $this->elasticSearchClient->indices()->delete(['index' => $indexName]);
+        return $this->elasticSearchClient->indices()->delete(['index' => $indexName]);
     }
 
-    public function getIndexData(string $indexName, $query = null)
+    /**
+     * Load data from an index
+     * @param string $indexName
+     * @param $query
+     * @return mixed
+     */
+    public function getIndexData(string $indexName, $query = null): mixed
     {
         $search = ['index' => $indexName];
         if (\is_null($query)) {
