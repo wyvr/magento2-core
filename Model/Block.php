@@ -19,7 +19,6 @@ use Wyvr\Core\Service\ElasticClient;
 class Block
 {
     private const INDEX = 'block';
-    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface     $scopeConfig,
@@ -32,7 +31,6 @@ class Block
         protected Transform                $transform
     )
     {
-        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateSingle($id)
@@ -56,8 +54,8 @@ class Block
         $cms_page = $this->blockRepositoryInterface->getById($id);
         $identifier = $cms_page->getIdentifier();
 
-        $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, $identifier) {
+            $this->elasticClient->delete($indexName, $id);
         }, self::INDEX, Constants::BLOCK_STRUC);
     }
 
@@ -79,7 +77,7 @@ class Block
         });
     }
 
-    public function updateBlock($block, $store): void
+    public function updateBlock($block, $indexName): void
     {
         $id = $block->getId();
         if (empty($id)) {
@@ -90,7 +88,7 @@ class Block
 
         $data = $this->transform->convertBoolAttributes($block->getData(), Constants::BLOCK_BOOL_ATTRIBUTES);
 
-        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store), [
+        $this->elasticClient->update($indexName, [
             'id' => $id,
             'identifier' => strtolower($block->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],
@@ -110,14 +108,14 @@ class Block
 
     public function updateStoreBlocks($store_blocks, $create_new = true): void
     {
-        $this->elasticClient->iterateStores(function ($store) use ($store_blocks) {
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($store_blocks) {
             $store_id = $store->getId();
             $blocks = array_merge($store_blocks[0] ?? [], $store_blocks[$store_id] ?? []);
 
             $this->logger->info(__('update %1 blocks from store %2', count($blocks), $store_id), ['block', 'update', 'store']);
 
             foreach ($blocks as $block) {
-                $this->updateBlock($block, $store_id);
+                $this->updateBlock($block, $indexName);
             }
         }, self::INDEX, Constants::BLOCK_STRUC, $create_new);
     }

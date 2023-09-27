@@ -24,7 +24,6 @@ use Wyvr\Core\Model\Product;
 class Cache
 {
     private const INDEX = 'cache';
-    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface      $scopeConfig,
@@ -38,7 +37,6 @@ class Cache
         protected Visibility                $productVisibility,
     )
     {
-        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName)
@@ -49,7 +47,7 @@ class Cache
         }
 
         $this->logger->measure($triggerName, ['cache', 'update', 'all'], function () {
-            $this->elasticClient->iterateStores(function ($store) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) {
                 $storeId = $store->getId();
                 $categories = $this->categoryCollectionFactory->create()
                     ->setStore($store)
@@ -92,14 +90,9 @@ class Cache
                         'id' => $category->getId(),
                         'products' => array_values($reduced_products)
                     ];
-                    $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $storeId), $data);
+                    $this->elasticClient->update($indexName, $data);
                 }
             }, self::INDEX, Constants::CACHE_STRUC, true);
         });
     }
-
-    private function getProducts($store)
-    {
-    }
-
 }

@@ -27,8 +27,7 @@ class ElasticClient
         ClientBuilder        $clientBuilder,
         Logger               $logger,
         Store                $store
-    )
-    {
+    ) {
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
         $this->store = $store;
@@ -57,6 +56,7 @@ class ElasticClient
         $indices = $this->elasticSearchClient->indices();
         $exists = $indices->exists(['index' => $indexName]);
         if (!$exists) {
+            $this->logger->info(__('create index %1', $indexName, ['elastic']));
             $indices->create(['index' => $indexName, 'body' => ['mappings' => ['properties' => $mapping]]]);
         }
         return $exists;

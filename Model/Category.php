@@ -34,8 +34,7 @@ class Category
         protected ElasticClient             $elasticClient,
         protected Transform                 $transform,
         protected Clear                     $clear
-    )
-    {
+    ) {
         $this->indexName = 'wyvr_' . self::INDEX;
     }
 
@@ -47,7 +46,7 @@ class Category
         }
 
         $this->logger->measure($triggerName, ['category', 'update', 'all'], function () {
-            $this->elasticClient->iterateStores(function ($store) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) {
                 $categories = $this->categoryCollectionFactory->create()
                     ->setStore($store)
                     ->addAttributeToSelect('*')
@@ -56,7 +55,7 @@ class Category
                 $this->logger->info(__('update %1 categories from store %2', count($categories), $store->getId()), ['category', 'update', 'all']);
 
                 foreach ($categories as $category) {
-                    $this->updateCategory($category, $store);
+                    $this->updateCategory($category, $store, $indexName);
                 }
             }, self::INDEX, Constants::CATEGORY_STRUC, true);
         });
@@ -69,20 +68,20 @@ class Category
             return;
         }
         $this->logger->measure(__('category id "%1"', $id), ['category', 'update'], function () use ($id) {
-            $this->elasticClient->iterateStores(function ($store) use ($id) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($id) {
                 $category = $this->categoryCollectionFactory->create()
                     ->setStore($store)
                     ->addAttributeToSelect('*')
                     ->addFieldToFilter('entity_id', $id)
                     ->getFirstItem();
 
-                $this->updateCategory($category, $store);
+                $this->updateCategory($category, $store, $indexName);
             }, self::INDEX, Constants::CATEGORY_STRUC);
         });
     }
 
 
-    public function updateCategory($category, $store)
+    public function updateCategory($category, $store, $indexName)
     {
         $id = $category->getEntityId();
         if (empty($id)) {
@@ -95,8 +94,7 @@ class Category
         if (array_key_exists('is_active', $data) && $data['is_active']) {
             $data['products'] = $this->getProductsOfCategory($id, $store);
         }
-
-        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store->getId()), [
+        $this->elasticClient->update($indexName, [
             'id' => $id,
             'url' => strtolower($category->getUrlPath() ?? ''),
             'name' => strtolower($category->getName() ?? ''),
@@ -136,15 +134,14 @@ class Category
             $this->logger->error('can not delete category because the id is not set', ['category', 'delete']);
             return;
         }
-        $this->elasticClient->iterateStores(function ($store) use ($id) {
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($id) {
             $category = $this->categoryCollectionFactory->create()
                 ->setStore($store)
                 ->addAttributeToSelect('*')
                 ->addFieldToFilter('entity_id', $id)
                 ->getFirstItem();
-            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
+            $this->elasticClient->delete($indexName, $id);
             $this->clear->delete('category', $category->getUrlPath() ?? '');
-
         }, self::INDEX, Constants::CATEGORY_STRUC);
     }
 }

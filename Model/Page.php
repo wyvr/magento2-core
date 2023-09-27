@@ -20,7 +20,6 @@ use Wyvr\Core\Service\ElasticClient;
 class Page
 {
     private const INDEX = 'page';
-    private string $indexName;
 
     public function __construct(
         protected ScopeConfigInterface    $scopeConfig,
@@ -34,7 +33,6 @@ class Page
         protected Clear                   $clear
     )
     {
-        $this->indexName = 'wyvr_' . self::INDEX;
     }
 
     public function updateAll($triggerName)
@@ -77,13 +75,13 @@ class Page
         $cms_page = $this->pageRepositoryInterface->getById($id);
         $identifier = $cms_page->getIdentifier();
 
-        $this->elasticClient->iterateStores(function ($store) use ($id, $identifier) {
-            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, $identifier) {
+            $this->elasticClient->delete($indexName, $id);
             $this->clear->delete('page', $identifier);
         }, self::INDEX, Constants::PAGE_STRUC);
     }
 
-    public function updatePage($page, $store): void
+    public function updatePage($page, $indexName): void
     {
         $id = $page->getId();
         if (empty($id)) {
@@ -96,7 +94,7 @@ class Page
 
         $search = $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::PAGE_INDEX_ATTRIBUTES), $page->getData());
 
-        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $store), [
+        $this->elasticClient->update($indexName, [
             'id' => $id,
             'url' => strtolower($page->getIdentifier() ?? ''),
             'is_active' => $data['is_active'],
@@ -119,14 +117,14 @@ class Page
 
     public function updateStorePages($store_pages, $create_new = true): void
     {
-        $this->elasticClient->iterateStores(function ($store) use ($store_pages) {
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($store_pages) {
             $store_id = $store->getId();
             $pages = array_merge($store_pages[0] ?? [], $store_pages[$store_id] ?? []);
 
             $this->logger->info(__('update %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
 
             foreach ($pages as $page) {
-                $this->updatePage($page, $store_id);
+                $this->updatePage($page, $indexName);
             }
         }, self::INDEX, Constants::PAGE_STRUC, $create_new);
     }

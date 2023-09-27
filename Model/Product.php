@@ -24,8 +24,6 @@ class Product
 {
     private const INDEX = 'product';
 
-    private string $indexName;
-
     public function __construct(
         protected ScopeConfigInterface                $scopeConfig,
         protected Logger                              $logger,
@@ -41,9 +39,7 @@ class Product
         protected Transform                           $transform,
         protected ConfigurableProduct                 $configurableProduct,
         protected Clear                               $clear
-    )
-    {
-        $this->indexName = 'wyvr_' . self::INDEX;
+    ) {
     }
 
     public function updateAll($triggerName)
@@ -54,16 +50,22 @@ class Product
         }
 
         $this->logger->measure($triggerName, ['product', 'update', 'all'], function () {
-            $this->elasticClient->iterateStores(function ($store) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) {
                 $products = $this->productCollectionFactory->create()
                     ->setStore($store)
                     ->getItems();
 
-                $this->logger->info(__('update %1 products from store %2', count($products), $store->getId()), ['product', 'update', 'all']);
+                $current = 1;
+                $total = count($products);
+                $this->logger->info(__('update %1 products from store %2', $total, $store->getId()), ['product', 'update', 'all']);
 
                 foreach ($products as $p) {
+                    if ($current % 100 == 0) {
+                        $this->logger->info(__('%2%, %1 products processed for store %3', $current, \round(100 / $total * $current), $store->getId()), ['product', 'update', 'all' ,'process']);
+                    }
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
-                    $this->updateProduct($product, $store, true);
+                    $this->updateProduct($product, $store, $indexName, true);
+                    $current++;
                 }
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
         });
@@ -78,13 +80,13 @@ class Product
         $this->logger->measure(__('product id "%1"', $id), ['product', 'update'], function () use ($id, $prev_category_ids) {
             $affected_category_ids = [];
 
-            $this->elasticClient->iterateStores(function ($store) use ($id, $prev_category_ids, &$affected_category_ids) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, $prev_category_ids, &$affected_category_ids) {
                 $product = $this->productRepository->getById($id, false, $store->getId());
                 if (is_array($prev_category_ids) && count($prev_category_ids)) {
                     $category_ids = $product->getCategoryIds();
                     $affected_category_ids = array_merge($affected_category_ids, array_diff($category_ids, $prev_category_ids), array_diff($prev_category_ids, $category_ids));
                 }
-                $this->updateProduct($product, $store);
+                $this->updateProduct($product, $store, $indexName);
             }, self::INDEX, Constants::PRODUCT_STRUC);
 
             $affected_category_ids = array_unique($affected_category_ids);
@@ -104,10 +106,10 @@ class Product
             return;
         }
         $this->logger->measure(__('product sku "%1"', $sku), ['product', 'update'], function () use ($sku) {
-            $this->elasticClient->iterateStores(function ($store) use ($sku) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($sku) {
                 $product = $this->productRepository->get($sku, false, $store->getId());
 
-                $this->updateProduct($product, $store);
+                $this->updateProduct($product, $store, $indexName);
             }, self::INDEX, Constants::PRODUCT_STRUC);
         });
     }
@@ -118,15 +120,14 @@ class Product
             $this->logger->error('can not delete product because the id is not set', ['product', 'delete']);
             return;
         }
-        $this->elasticClient->iterateStores(function ($store) use ($id) {
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($id) {
             $product = $this->productRepository->getById($id, false, $store->getId());
-            $this->elasticClient->delete($this->elasticClient->getIndexName($this->indexName, $store), $id);
+            $this->elasticClient->delete($indexName, $id);
             $this->clear->delete('product', $product->getUrlKey());
-
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
-    public function updateProduct($product, $store, $avoid_clearing = false)
+    public function updateProduct($product, $store, $indexName, $avoid_clearing = false)
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
@@ -175,7 +176,7 @@ class Product
             $data['parent_products'] = $parentProducts;
         }
 
-        $this->elasticClient->update($this->elasticClient->getIndexName($this->indexName, $storeId), [
+        $this->elasticClient->update($indexName, [
             'id' => $id,
             'url' => strtolower($url),
             'sku' => strtolower($product->getSku()),
@@ -188,17 +189,16 @@ class Product
         ]);
 
         // mark the product to be re-executed
-        if(!$avoid_clearing) {
+        if (!$avoid_clearing) {
             $this->clear->upsert('product', $url);
         }
 
         if (!empty($parentProductsFull)) {
             foreach ($parentProductsFull as $parentProduct) {
                 $this->logger->debug(__('update configurable product %1', $parentProduct->getId()), ['product', 'update']);
-                $this->updateProduct($parentProduct, $store);
+                $this->updateProduct($parentProduct, $store, $indexName);
             }
         }
-
     }
 
     public function getProductData($product, $storeId)
@@ -301,5 +301,4 @@ class Product
             }
         }
     }
-
 }
