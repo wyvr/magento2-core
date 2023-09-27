@@ -21,6 +21,7 @@ class ElasticClient
     protected Client|null $elasticSearchClient;
     protected ScopeConfigInterface $scopeConfig;
     protected Store $store;
+    protected array $ignoredStores = [];
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -34,6 +35,7 @@ class ElasticClient
 
         $elasticsearchHost = \trim($this->scopeConfig->getValue(Constants::ELASTICSEARCH_HOST));
         $elasticsearchPort = \trim($this->scopeConfig->getValue(Constants::ELASTICSEARCH_PORT));
+        $this->ignoredStores = \array_filter(\explode(',', \trim($this->scopeConfig->getValue(Constants::STORES_IGNORED) ?? '')));
 
         if ($elasticsearchHost) {
             $clientBuilder->setHosts([$elasticsearchHost . ':' . $elasticsearchPort ?: '9200']);
@@ -163,6 +165,10 @@ class ElasticClient
         }
         $this->store->iterate(function (StoreInterface $store) use ($callback, $indexName, $structure, $create_new) {
             $store_id = $store->getId();
+            if (in_array($store_id, $this->ignoredStores)) {
+                $this->logger->info(__('store %1 is ignored', $store_id));
+                return;
+            }
 
             $alias = 'wyvr_' . $indexName . '_' . $store_id;
             $versions = $this->getVersions($alias, $create_new);

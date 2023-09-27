@@ -35,6 +35,9 @@ wyvr</included_paths>
             <page>
                 <index_attributes>content_heading,meta_description</index_attributes>
             </page>
+            <stores>
+                <ignored></ignored>
+            </stores>
         </wyvr>
     </default>
 </config>

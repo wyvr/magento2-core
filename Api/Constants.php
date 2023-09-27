@@ -16,6 +16,8 @@ class Constants
     const ELASTICSEARCH_PORT = 'catalog/search/elasticsearch7_server_port';
     const ELASTICSEARCH_HOST = 'catalog/search/elasticsearch7_server_hostname';
 
+    const STORES_IGNORED = "wyvr/stores/ignored";
+
     const PRODUCT_INDEX_ATTRIBUTES = "wyvr/product/index_attributes";
     const PRODUCT_STRUC = [
         'id' => [

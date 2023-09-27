@@ -56,6 +56,14 @@
                     <comment>comma seperated list</comment>
                 </field>
             </group>
+            <group id="stores" translate="label" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Stores</label>
+
+                <field id="ignored" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Disabled Store IDs</label>
+                    <comment>comma seperated list of the store IDs which should be ignored when indexing</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>
