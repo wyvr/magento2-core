@@ -103,6 +103,7 @@ class ElasticClient
 
         // only add when data is valid
         if (!array_key_exists('id', $data)) {
+            $this->logger->error(__('invalid data %1', json_encode($data)));
             return;
         }
 
