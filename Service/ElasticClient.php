@@ -121,7 +121,7 @@ class ElasticClient
                 'body' => $data
             ]);
         } catch (\Exception $exception) {
-            $this->logger->error('error update ' . $data['id'] . ' => ' . $indexName . ' ' . $exception->getMessage());
+            $this->logger->error(__('error update %1 => %2 %3', $data['id'], $indexName, $exception->getMessage()));
             return;
         }
     }
@@ -146,11 +146,11 @@ class ElasticClient
                 $this->elasticSearchClient->delete($params);
             } catch (\Exception $exception) {
                 if ($exception->getCode() === 404) {
-                    $this->logger->error('error delete ' . $id . ' => ' . $indexName . ' does not exist');
+                    $this->logger->error(__('error delete %1 => %2 does not exist', $id, $indexName));
                     return;
                     // the document does not exist
                 }
-                $this->logger->error('error delete ' . $id . ' => ' . $indexName . ' ' . $exception->getMessage());
+                $this->logger->error(__('error delete %1 => %2 %3', $id, $indexName, $exception->getMessage()));
             }
         }
     }
@@ -158,7 +158,7 @@ class ElasticClient
     public function iterateStores(callable $callback, $indexName, $structure, $create_new = false): void
     {
         if (\is_null($indexName)) {
-            $this->logger->error('missing index in iterateStores');
+            $this->logger->error(__('missing index in iterateStores'));
             return;
         }
         $this->store->iterate(function (StoreInterface $store) use ($callback, $indexName, $structure, $create_new) {
@@ -178,7 +178,7 @@ class ElasticClient
             try {
                 $callback($store, $index_name);
             } catch (\Exception $exception) {
-                $this->logger->error('error in callback for store ' . $store_id . ' ' . $exception->getMessage());
+                $this->logger->error(__('error in callback for store %1 %2', $store_id, $exception->getMessage()));
             }
             if ($create_new && !$avoid_reupdate) {
                 $this->updateAlias($alias, $index_name, $versions['prev_aliases'], $versions['all']);
@@ -195,11 +195,11 @@ class ElasticClient
     {
         try {
             if (!$this->elasticSearchClient || !$this->elasticSearchClient->ping()) {
-                $this->logger->error('index ' . $indexName . ' is not available');
+                $this->logger->error(__('index %1 is not available', $indexName));
                 return false;
             }
         } catch (\Exception $exception) {
-            $this->logger->error('index ' . $indexName . ' is not available ' . $exception->getMessage());
+            $this->logger->error(__('index %1 is not available %2', $indexName, $exception->getMessage()));
             return false;
         }
         return true;
@@ -276,7 +276,7 @@ class ElasticClient
                 $result['prev_aliases'] = $previous_alias_versions;
             }
         } catch (\Exception $exception) {
-            $this->logger->debug('can not get previous version of ' . $indexName . ' ' . $exception->getMessage());
+            $this->logger->debug(__('can not get previous version of %1 %2', $indexName, $exception->getMessage()));
         }
         try {
             $all_indices = [];
@@ -295,7 +295,7 @@ class ElasticClient
             \rsort($all_indices);
             $result['all'] = $all_indices;
         } catch (\Exception $exception) {
-            $this->logger->debug('can not get version of ' . $indexName . ' ' . $exception->getMessage());
+            $this->logger->debug(__('can not get version of %1 %2', $indexName, $exception->getMessage()));
         }
         return $result;
     }
