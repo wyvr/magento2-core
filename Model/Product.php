@@ -63,7 +63,7 @@ class Product
 
                 foreach ($products as $p) {
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
-                    $this->updateProduct($product, $store);
+                    $this->updateProduct($product, $store, true);
                 }
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
         });
@@ -126,7 +126,7 @@ class Product
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
-    public function updateProduct($product, $store)
+    public function updateProduct($product, $store, $avoid_clearing = false)
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
@@ -188,7 +188,9 @@ class Product
         ]);
 
         // mark the product to be re-executed
-        $this->clear->upsert('product', $url);
+        if(!$avoid_clearing) {
+            $this->clear->upsert('product', $url);
+        }
 
         if (!empty($parentProductsFull)) {
             foreach ($parentProductsFull as $parentProduct) {
