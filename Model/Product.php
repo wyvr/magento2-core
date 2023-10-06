@@ -61,7 +61,7 @@ class Product
 
                 foreach ($products as $p) {
                     if ($current % 100 == 0) {
-                        $this->logger->info(__('%2%, %1 products processed for store %3', $current, \round(100 / $total * $current), $store->getId()), ['product', 'update', 'all' ,'process']);
+                        $this->logger->info(__('%2%, %1 products processed for store %3', $current, \round(100 / $total * $current), $store->getId()), ['product', 'update', 'all', 'process']);
                     }
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
                     $this->updateProduct($product, $store, $indexName, true);
@@ -227,7 +227,8 @@ class Product
         }
         $instance = $product->getTypeInstance();
         $data['configurable_products'] = array_map(function ($p) use ($storeId) {
-            return $this->getProductData($p, $storeId);
+            // @NOTE getUsedProducts returns only a subset of all available product attributes, avoid duplicating data, the simples to the cionfigurables has to be loaded on the client
+            return $p->getId();
         }, $instance->getUsedProducts($product));
         $data['configurable_options'] = $instance->getConfigurableOptions($product);
     }
@@ -258,6 +259,7 @@ class Product
         foreach ($productAttributes as $attribute) {
             $attrCode = $attribute->getAttributeCode();
             $attrData = $product->getData($attrCode);
+
             $label = $attribute->getDefaultFrontendLabel();
             $attrLabel = $attribute->getFrontendLabels();
             if (!empty($attrLabel)) {
