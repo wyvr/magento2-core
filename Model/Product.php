@@ -19,6 +19,7 @@ use Wyvr\Core\Api\Constants;
 use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 use Magento\ConfigurableProduct\Model\Product\Type\Configurable as ConfigurableProduct;
+use Magento\Catalog\Model\Product\Attribute\Source\Status;
 
 class Product
 {
@@ -162,12 +163,17 @@ class Product
                 // This means that the simple product is associated with a configurable product, load it
                 foreach ($parentIds as $parentId) {
                     $configurableProduct = $this->productRepository->getById($parentId);
+                    // ignore disabled parents
+                    if($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
+                        continue;
+                    }
                     $parentProductsFull[] = $configurableProduct;
                     $parent = [
                         'id' => $parentId,
                         'sku' => $configurableProduct->getSku(),
                         'url_key' => $configurableProduct->getUrlKey(),
                     ];
+
                     $parentProducts[] = $parent;
                 }
             }
