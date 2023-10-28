@@ -202,7 +202,7 @@ class Product
         if (!empty($parentProductsFull)) {
             foreach ($parentProductsFull as $parentProduct) {
                 $this->logger->debug(__('update configurable product %1', $parentProduct->getId()), ['product', 'update']);
-                $this->updateProduct($parentProduct, $store, $indexName);
+                $this->updateProduct($parentProduct, $store, $indexName, $avoid_clearing);
             }
         }
     }
