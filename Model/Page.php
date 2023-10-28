@@ -31,8 +31,7 @@ class Page
         protected FilterProvider          $templateProcessor,
         protected Transform               $transform,
         protected Clear                   $clear
-    )
-    {
+    ) {
     }
 
     public function updateAll($triggerName)
@@ -48,7 +47,7 @@ class Page
             }, $this->pageRepositoryInterface->getList($this->searchCriteriaBuilder->create())
                 ->getItems());
 
-            $this->updateStorePages($store_pages, true);
+            $this->updateStorePages($store_pages, true, true);
         });
     }
 
@@ -81,7 +80,7 @@ class Page
         }, self::INDEX, Constants::PAGE_STRUC);
     }
 
-    public function updatePage($page, $indexName): void
+    public function updatePage($page, $indexName, $avoid_clearing = false): void
     {
         $id = $page->getId();
         if (empty($id)) {
@@ -101,8 +100,9 @@ class Page
             'search' => $search,
             'page' => $data
         ]);
-        $this->clear->upsert('page', $page->getIdentifier() ?? '');
-
+        if (!$avoid_clearing) {
+            $this->clear->upsert('page', $page->getIdentifier() ?? '');
+        }
     }
 
     public function splitToStores($cms_page, &$store_pages): void
@@ -115,18 +115,17 @@ class Page
         }
     }
 
-    public function updateStorePages($store_pages, $create_new = true): void
+    public function updateStorePages($store_pages, $create_new = true, $avoid_clearing = false): void
     {
-        $this->elasticClient->iterateStores(function ($store, $indexName) use ($store_pages) {
+        $this->elasticClient->iterateStores(function ($store, $indexName) use ($store_pages, $avoid_clearing) {
             $store_id = $store->getId();
             $pages = array_merge($store_pages[0] ?? [], $store_pages[$store_id] ?? []);
 
             $this->logger->info(__('update %1 pages from store %2', count($pages), $store_id), ['block', 'update', 'store']);
 
             foreach ($pages as $page) {
-                $this->updatePage($page, $indexName);
+                $this->updatePage($page, $indexName, $avoid_clearing);
             }
         }, self::INDEX, Constants::PAGE_STRUC, $create_new);
     }
-
 }

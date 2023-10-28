@@ -55,7 +55,7 @@ class Category
                 $this->logger->info(__('update %1 categories from store %2', count($categories), $store->getId()), ['category', 'update', 'all']);
 
                 foreach ($categories as $category) {
-                    $this->updateCategory($category, $store, $indexName);
+                    $this->updateCategory($category, $store, $indexName, true);
                 }
             }, self::INDEX, Constants::CATEGORY_STRUC, true);
         });
@@ -81,7 +81,7 @@ class Category
     }
 
 
-    public function updateCategory($category, $store, $indexName)
+    public function updateCategory($category, $store, $indexName, $avoid_clearing = false)
     {
         $id = $category->getEntityId();
         if (empty($id)) {
@@ -102,8 +102,9 @@ class Category
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => $data
         ]);
-
-        $this->clear->upsert('category', $category->getUrlPath() ?? '');
+        if (!$avoid_clearing) {
+            $this->clear->upsert('category', $category->getUrlPath() ?? '');
+        }
     }
 
     public function getProductsOfCategory($id, $store)
