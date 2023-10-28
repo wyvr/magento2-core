@@ -11,14 +11,12 @@ class CleanCache implements ObserverInterface
 {
     public function __construct(
         protected Clear  $clear,
-        protected Logger $logger
     )
     {
     }
 
     public function execute(Observer $observer)
     {
-        $this->logger->info(__('flush cache'));
-        $this->clear->set('*', '*', 'clear');
+        $this->clear->all(__('flush cache'));
     }
 }

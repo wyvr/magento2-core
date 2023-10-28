@@ -15,6 +15,7 @@ use Wyvr\Core\Model\Category;
 use Wyvr\Core\Model\Page;
 use Wyvr\Core\Model\Product;
 use Wyvr\Core\Model\Cache;
+use Wyvr\Core\Model\Clear;
 use Wyvr\Core\Model\Settings;
 
 class CronManager
@@ -29,6 +30,7 @@ class CronManager
         protected Page                  $page,
         protected Cache                 $cache,
         protected Settings              $settings,
+        protected Clear                 $clear
     )
     {
     }
@@ -40,6 +42,7 @@ class CronManager
         $this->rebuild_products();
         $this->rebuild_pages();
         $this->rebuild_cache();
+        $this->clear->all(__('rebuild'));
     }
 
     public function rebuild_categories(): void

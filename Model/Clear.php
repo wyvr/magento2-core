@@ -25,8 +25,7 @@ class Clear
         protected ScopeConfigInterface $scopeConfig,
         protected Logger               $logger,
         protected ElasticClient        $elasticClient,
-    )
-    {
+    ) {
         $this->indexName = 'wyvr_' . self::INDEX;
     }
 
@@ -52,5 +51,13 @@ class Clear
             $this->logger->error(__('error %1 %2 => %3 %4', $type, $url, $this->indexName, $exception->getMessage()));
             return;
         }
+    }
+    public function all(string $triggerName)
+    {
+        if (!$triggerName) {
+            return;
+        }
+        $this->logger->warning(__('clear all caches because of %1', $triggerName));
+        $this->set('*', '*', 'clear');
     }
 }
