@@ -17,4 +17,8 @@
             <argument name="fileName" xsi:type="string">wyvr.log</argument>
         </arguments>
     </type>
+
+    <type name="Magento\CatalogInventory\Model\Stock\StockItemRepository">
+        <plugin name="wyvr_core_plugin_stockitemrepository" type="Wyvr\Core\Plugin\StockItemRepositoryPlugin" sortOrder="10"/>
+    </type>
 </config>
