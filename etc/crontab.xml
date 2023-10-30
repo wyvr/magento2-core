@@ -8,15 +8,15 @@
         </job>
         <job name="wyvr_rebuild_categories" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_categories">
-            <schedule>0 0 30 2 *</schedule>
+            <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
         <job name="wyvr_rebuild_products" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_products">
-            <schedule>0 0 30 2 *</schedule>
+            <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
         <job name="wyvr_rebuild_pages" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_pages">
-            <schedule>0 0 30 2 *</schedule>
+            <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
         <job name="wyvr_rebuild_cache" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_cache">
@@ -24,7 +24,7 @@
         </job>
         <job name="wyvr_rebuild_settings" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_settings">
-            <schedule>0 0 30 2 *</schedule>
+            <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
     </group>
 </config>
