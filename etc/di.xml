@@ -21,4 +21,7 @@
     <type name="Magento\CatalogInventory\Model\Stock\StockItemRepository">
         <plugin name="wyvr_core_plugin_stockitemrepository" type="Wyvr\Core\Plugin\StockItemRepositoryPlugin" sortOrder="10"/>
     </type>
+    <type name="Magento\Catalog\Model\CategoryRepository">
+        <plugin name="wyvr_core_plugin_categoryrepository" type="Wyvr\Core\Plugin\CategoryRepositoryPlugin" sortOrder="10"/>
+    </type>
 </config>
