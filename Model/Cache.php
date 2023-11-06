@@ -69,7 +69,7 @@ class Cache
                     }
                     $category_products = $category->getProductCollection()
                         ->addAttributeToFilter('status', ['in' => $this->productStatus->getVisibleStatusIds()])
-                        ->setVisibility($this->productVisibility->getVisibleInSiteIds())
+                        ->setVisibility($this->productVisibility->getVisibleInCatalogIds())
                         ->getItems();
                     $reduced_products = array_filter(array_map(function ($product) use ($products_map) {
                         if (!array_key_exists($product->getId(), $products_map)) {
