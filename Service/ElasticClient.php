@@ -230,12 +230,16 @@ class ElasticClient
     public function getIndexData(string $indexName, $query = null): mixed
     {
         $search = ['index' => $indexName];
-        if (\is_null($query)) {
+        if (!\is_array($query)) {
             $search['q'] = [
                 'match_all' => []
             ];
             $search['size'] = 10000;
             $search['scroll'] = '10s';
+        } else {
+            foreach ($query as $key => $value) {
+                $search[$key] = $value;
+            }
         }
         $result = $this->elasticSearchClient->search($search);
         if (!\array_key_exists('hits', $result) || !\array_key_exists('hits', $result['hits'])) {
