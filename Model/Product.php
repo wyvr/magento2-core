@@ -136,6 +136,14 @@ class Product
             $this->logger->error('can not update product because the id is not set', ['product', 'update']);
             return;
         }
+        // check if the product has to be updated, to avoid multiple updates in series
+        if (!$avoid_clearing) {
+            $data = $this->elasticClient->getById($indexName, $id);
+            if ($data && $data['updated_at'] === $product->getUpdatedAt()) {
+                // product has not been changed, ignore
+                return;
+            }
+        }
         $this->logger->debug(__('update product %1', $id), ['product', 'update']);
 
         $data = $this->getProductData($product, $storeId);
@@ -164,7 +172,7 @@ class Product
                 foreach ($parentIds as $parentId) {
                     $configurableProduct = $this->productRepository->getById($parentId);
                     // ignore disabled parents
-                    if($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
+                    if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
                         continue;
                     }
                     $parentProductsFull[] = $configurableProduct;
