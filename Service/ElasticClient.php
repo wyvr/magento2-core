@@ -274,6 +274,20 @@ class ElasticClient
         return $result['hits']['hits'];
     }
 
+    public function getById(string $indexName, string|int $id): ?array
+    {
+        $params = [
+            'index' => $indexName,
+            'id' => $id
+        ];
+
+        $result = $this->elasticSearchClient->get($params);
+        if (!$result || !\array_key_exists('_source', $result)) {
+            return null;
+        }
+        return $result['_source'];
+    }
+
     public function getVersions(string $indexName, $create_new = false): array
     {
         $result = ['version' => 1, 'prev_aliases' => null, 'all' => null];
