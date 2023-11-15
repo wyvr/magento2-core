@@ -23,7 +23,7 @@ class StockItemRepositoryPlugin
     ) {
         $id = $result->getProductId();
         if($id) {
-            $this->product->updateSingle($id);
+            $this->product->updateStock($id);
         }
         return $result;
     }

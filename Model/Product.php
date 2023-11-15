@@ -183,6 +183,37 @@ class Product
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
+    public function updateStock($id)
+    {
+        $this->logger->measure(__('stock of id "%1"', $id), ['stock', 'update'], function () use ($id, &$category_ids) {
+            $category_ids = [];
+
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, &$category_ids) {
+                $product = $this->productRepository->getById($id, false, $store->getId());
+                $data = $this->elasticClient->getById($indexName, $id);
+                if (!$data || !$product) {
+                    return;
+                }
+                // update quantity and stock status
+                if (array_key_exists('quantity_and_stock_status', $data['product']) && array_key_exists('value', $data['product']['quantity_and_stock_status'])) {
+                    $data['product']['quantity_and_stock_status']['value'] = $product->getQuantityAndStockStatus();
+                }
+                $data['product']['stock'] = null;
+                try {
+                    $data['product']['stock'] = $this->stockItemRepository->get($product->getId())->getData();
+                } catch (\Exception $exception) {
+                    $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
+                }
+
+                $this->elasticClient->update($indexName, $data);
+
+                $this->clear->upsert('product', $data['url']);
+
+                $this->logger->info(__('update stock of id "%1"', $id), ['stock', 'update']);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
+    }
+
     public function updateProduct($product, $store, string $indexName, ?bool $partial_import = true): array
     {
         $id = $product->getEntityId();
