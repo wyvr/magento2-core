@@ -33,8 +33,10 @@ class Category
         protected StoreManagerInterface     $storeManager,
         protected ElasticClient             $elasticClient,
         protected Transform                 $transform,
-        protected Clear                     $clear
-    ) {
+        protected Clear                     $clear,
+        protected Cache                     $cache
+    )
+    {
         $this->indexName = 'wyvr_' . self::INDEX;
     }
 
@@ -102,8 +104,9 @@ class Category
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => $data
         ]);
+
         if (!$avoid_clearing) {
-            $this->clear->upsert('category', $category->getUrlPath() ?? '');
+            $this->cache->updateMany([$id]);
         }
     }
 
@@ -141,7 +144,11 @@ class Category
                 ->addAttributeToSelect('*')
                 ->addFieldToFilter('entity_id', $id)
                 ->getFirstItem();
+            // delete from the category index
             $this->elasticClient->delete($indexName, $id);
+            // delete from the cache index
+            $this->elasticClient->delete('wyvr_cache_' . $store->getId(), $id);
+            // mark for removing
             $this->clear->delete('category', $category->getUrlPath() ?? '');
         }, self::INDEX, Constants::CATEGORY_STRUC);
     }

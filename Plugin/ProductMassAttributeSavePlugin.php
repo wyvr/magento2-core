@@ -20,8 +20,7 @@ class ProductMassAttributeSavePlugin
     public function __construct(
         protected Product           $product,
         protected Filter            $filter,
-        protected CollectionFactory $collectionFactory,
-        protected ProductRepository $productRepository
+        protected CollectionFactory $collectionFactory
     )
     {
     }
@@ -29,10 +28,6 @@ class ProductMassAttributeSavePlugin
     public function beforeExecute()
     {
         $this->ids = $this->filter->getCollection($this->collectionFactory->create())->getAllIds();
-        foreach ($this->ids as $id) {
-            $product = $this->productRepository->getById($id);
-            $this->category_ids[$id] = $product->getCategoryIds();
-        }
         return null;
     }
 
@@ -41,9 +36,7 @@ class ProductMassAttributeSavePlugin
         $result
     )
     {
-        foreach ($this->ids as $id) {
-            $this->product->updateSingle($id, $this->category_ids[$id]);
-        }
+        $this->product->updateMany($this->ids);
         return $result;
     }
 }

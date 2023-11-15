@@ -14,12 +14,8 @@ use Magento\Catalog\Controller\Adminhtml\Product\Save;
 
 class ProductSavePlugin
 {
-    private $category_ids;
-    private $id;
-
     public function __construct(
         protected Product                  $product,
-        protected ProductRepository        $productRepository,
         protected ProductCollectionFactory $productCollectionFactory,
     )
     {
@@ -30,25 +26,18 @@ class ProductSavePlugin
              $result
     )
     {
-        $product = null;
         $id = $subject->getRequest()->getParam('id');
 
         if (is_null($id)) {
             // new product
+            // @TODO max item (set sort order)
             $newestProduct = $this->productCollectionFactory->create()->getLastItem();
             if ($newestProduct->hasData('entity_id')) {
                 $id = $newestProduct->getEntityId();
-                $product = $newestProduct;
             }
         }
-        // product was updated
-        if ($id && !$product) {
-            $product = $this->productRepository->getById($id);
-        }
-
-        if ($product) {
-            $categoryIds = $product->getCategoryIds();
-            $this->product->updateSingle($id, $categoryIds);
+        if ($id) {
+            $this->product->updateSingle($id);
         }
 
         return $result;

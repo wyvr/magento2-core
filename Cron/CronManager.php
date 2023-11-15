@@ -45,6 +45,10 @@ class CronManager
         $this->clear->all(__('rebuild'));
     }
 
+    public function update_cache(): void {
+        $this->cache->updatePartial('cron cache update');
+    }
+
     public function rebuild_categories(): void
     {
         $this->category->updateAll('cron categories');

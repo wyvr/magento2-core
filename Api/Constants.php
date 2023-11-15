@@ -140,6 +140,12 @@ class Constants
             'dynamic' => false
         ]
     ];
+    const CATEGORY_CACHE_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ]
+    ];
 
     const SETTINGS_STRUC = [
         'id' => [

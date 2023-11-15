@@ -18,6 +18,10 @@
              method="rebuild_pages">
             <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
+        <job name="wyvr_update_cache" instance="Wyvr\Core\Cron\CronManager"
+             method="update_cache">
+            <schedule>0/4 * * * *</schedule>
+        </job>
         <job name="wyvr_rebuild_cache" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_cache">
             <!-- <schedule>0 1 * * *</schedule> -->

@@ -7,14 +7,12 @@
 
 namespace Wyvr\Core\Plugin;
 
-use Wyvr\Core\Model\Category;
 use Wyvr\Core\Model\Product;
 
 class ProductImportPlugin
 {
     public function __construct(
-        protected Product  $product,
-        protected Category $category,
+        protected Product  $product
     )
     {
     }
@@ -32,7 +30,6 @@ class ProductImportPlugin
                     }
                 }
             }
-            $this->category->updateAll('product import');
         }
 
         return $result;

@@ -39,8 +39,10 @@ class Product
         protected Category                            $category,
         protected Transform                           $transform,
         protected ConfigurableProduct                 $configurableProduct,
-        protected Clear                               $clear
-    ) {
+        protected Clear                               $clear,
+        protected Cache                               $cache
+    )
+    {
     }
 
     public function updateAll($triggerName)
@@ -57,7 +59,7 @@ class Product
                     ->getItems();
 
                 $current = 1;
-                $total = count($products);
+                $total = \count($products);
                 $this->logger->info(__('update %1 products from store %2', $total, $store->getId()), ['product', 'update', 'all']);
 
                 foreach ($products as $p) {
@@ -65,59 +67,83 @@ class Product
                         $this->logger->info(__('%2%, %1 products processed for store %3', $current, \round(100 / $total * $current), $store->getId()), ['product', 'update', 'all', 'process']);
                     }
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
-                    $this->updateProduct($product, $store, $indexName, true);
+                    $this->updateProduct($product, $store, $indexName, false);
                     $current++;
                 }
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
         });
     }
 
-    public function updateSingle($id, $prev_category_ids = [])
+    public function updateSingle($id)
     {
         if (empty($id)) {
             $this->logger->error('can not update product because the id is not set', ['product', 'update']);
             return;
         }
-        $this->logger->measure(__('product id "%1"', $id), ['product', 'update'], function () use ($id, $prev_category_ids) {
-            $affected_category_ids = [];
+        $this->logger->measure(__('product id "%1"', $id), ['product', 'update'], function () use ($id, &$category_ids) {
+            $category_ids = [];
 
-            $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, $prev_category_ids, &$affected_category_ids) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($id, &$category_ids) {
                 $product = $this->productRepository->getById($id, false, $store->getId());
-                if (is_array($prev_category_ids) && count($prev_category_ids)) {
-                    $category_ids = $product->getCategoryIds();
-                    $affected_category_ids = array_merge($affected_category_ids, array_diff($category_ids, $prev_category_ids), array_diff($prev_category_ids, $category_ids));
-                }
-                $this->updateProduct($product, $store, $indexName);
+                $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName));
             }, self::INDEX, Constants::PRODUCT_STRUC);
 
-            $affected_category_ids = array_unique($affected_category_ids);
-            if (count($affected_category_ids) > 0) {
-                $this->logger->info(__('affected category ids %1', join(',', $affected_category_ids)), ['product', 'update']);
-                foreach ($affected_category_ids as $id) {
-                    $this->category->updateSingle($id);
-                }
+            // update all affected categories
+            if (\count($category_ids) > 0) {
+                $this->cache->updateMany($category_ids);
             }
         });
     }
 
     public function updateSingleBySku($sku)
     {
-        if (empty($sku)) {
+        if (\count($sku) == 0) {
             $this->logger->error('can not update product because the sku is not set', ['product', 'update']);
             return;
         }
         $this->logger->measure(__('product sku "%1"', $sku), ['product', 'update'], function () use ($sku) {
-            $this->elasticClient->iterateStores(function ($store, $indexName) use ($sku) {
-                $product = $this->productRepository->get($sku, false, $store->getId());
+            $category_ids = [];
 
-                $this->updateProduct($product, $store, $indexName);
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($sku, &$category_ids) {
+                $product = $this->productRepository->get($sku, false, $store->getId());
+                $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName));
             }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            // update all affected categories
+            if (\count($category_ids) > 0) {
+                $this->cache->updateMany($category_ids);
+            }
         });
+
+    }
+
+    public function updateMany(array $ids)
+    {
+        if (!is_array($ids) || \count($ids) == 0) {
+            $this->logger->error('can not update product because the id is not set', ['product', 'update']);
+            return;
+        }
+        $this->logger->measure(__('product ids "%1"', join('","', $ids)), ['product', 'update'], function () use ($ids) {
+            $category_ids = [];
+
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($ids, &$category_ids) {
+                foreach ($ids as $id) {
+                    $product = $this->productRepository->getById($id, false, $store->getId());
+                    $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName));
+                }
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            // update all affected categories
+            if (\count($category_ids) > 0) {
+                $this->cache->updateMany($category_ids);
+            }
+        });
+
     }
 
     public function delete($id)
     {
-        if (empty($id)) {
+        if (\count($id) == 0) {
             $this->logger->error('can not delete product because the id is not set', ['product', 'delete']);
             return;
         }
@@ -128,20 +154,25 @@ class Product
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
-    public function updateProduct($product, $store, $indexName, $avoid_clearing = false)
+    public function updateProduct($product, $store, string $indexName, ?bool $partial_import = true): array
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
         if (empty($id)) {
             $this->logger->error('can not update product because the id is not set', ['product', 'update']);
-            return;
+            return [];
         }
+        $category_ids = $product->getCategoryIds();
         // check if the product has to be updated, to avoid multiple updates in series
-        if (!$avoid_clearing) {
+        if ($partial_import) {
             $data = $this->elasticClient->getById($indexName, $id);
             if ($data && $data['updated_at'] === $product->getUpdatedAt()) {
                 // product has not been changed, ignore
-                return;
+                return [];
+            }
+            $prev_category_ids = $data['product']['category_ids']['value'] ?? [];
+            if (\count($prev_category_ids) > 0) {
+                $category_ids = \array_merge($category_ids, $prev_category_ids);
             }
         }
         $this->logger->debug(__('update product %1', $id), ['product', 'update']);
@@ -164,10 +195,11 @@ class Product
 
         $parentProducts = [];
         $parentProductsFull = [];
-        if ($product->getTypeId() == 'simple') {
+        // not required in a full reindex, because the configurable also gets processed
+        if ($product->getTypeId() == 'simple' && $partial_import) {
             // Get all parent ids of this product
             $parentIds = $this->configurableProduct->getParentIdsByChild($id);
-            if (!empty($parentIds)) {
+            if (\count($parentIds) > 0) {
                 // This means that the simple product is associated with a configurable product, load it
                 foreach ($parentIds as $parentId) {
                     $configurableProduct = $this->productRepository->getById($parentId);
@@ -186,7 +218,7 @@ class Product
                 }
             }
         }
-        if (!empty($parentProducts)) {
+        if (\count($parentProducts) > 0) {
             $data['parent_products'] = $parentProducts;
         }
 
@@ -203,16 +235,18 @@ class Product
         ]);
 
         // mark the product to be re-executed
-        if (!$avoid_clearing) {
+        if ($partial_import) {
             $this->clear->upsert('product', $url);
         }
 
-        if (!empty($parentProductsFull)) {
+        if (\count($parentProductsFull) > 0) {
             foreach ($parentProductsFull as $parentProduct) {
                 $this->logger->debug(__('update configurable product %1', $parentProduct->getId()), ['product', 'update']);
-                $this->updateProduct($parentProduct, $store, $indexName, $avoid_clearing);
+                $configurable_category_ids = $this->updateProduct($parentProduct, $store, $indexName, $partial_import);
+                $category_ids = \array_merge($category_ids, $configurable_category_ids);
             }
         }
+        return $category_ids;
     }
 
     public function getProductData($product, $storeId)
@@ -276,7 +310,7 @@ class Product
 
             $label = $attribute->getDefaultFrontendLabel();
             $attrLabel = $attribute->getFrontendLabels();
-            if (!empty($attrLabel)) {
+            if (\count($attrLabel) > 0) {
                 $store_label = current(array_filter($attrLabel, function ($l) use ($storeId) {
                     return $l->getStoreId() == $storeId;
                 }));
