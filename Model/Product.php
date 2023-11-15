@@ -43,8 +43,7 @@ class Product
         protected Clear                               $clear,
         protected Cache                               $cache,
         protected ManagerInterface                    $eventManager
-    )
-    {
+    ) {
     }
 
     public function updateAll($triggerName)
@@ -210,6 +209,39 @@ class Product
                 $this->clear->upsert('product', $data['url']);
 
                 $this->logger->info(__('update stock of id "%1"', $id), ['stock', 'update']);
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+        });
+    }
+
+    public function updatePriceBySku($sku)
+    {
+        $this->logger->measure(__('price of sku "%1"', $sku), ['price', 'update'], function () use ($sku, &$category_ids) {
+            $category_ids = [];
+
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($sku, &$category_ids) {
+                $store_id = $store->getId();
+                $product = $this->productRepository->get($sku, false, $store_id);
+                if (!$product) {
+                    return;
+                }
+                $id = $product->getId();
+                $data = $this->elasticClient->getById($indexName, $id);
+                if (!$data) {
+                    return;
+                }
+                // get the newest price
+                $this->appendPrice($data['product'], $product);
+                // update the entry in the elastic
+                $this->elasticClient->update($indexName, $data);
+                // clear the product
+                $this->clear->upsert('product', $data['url']);
+
+                $category_ids = \array_merge($category_ids, $product->getCategoryIds());
+
+                // dispatch event to allow easy react to updates
+                $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $store_id]);
+
+                $this->logger->info(__('update price of id "%1"', $id), ['price', 'update']);
             }, self::INDEX, Constants::PRODUCT_STRUC);
         });
     }
