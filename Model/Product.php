@@ -10,6 +10,7 @@ namespace Wyvr\Core\Model;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
 use Magento\Catalog\Model\ProductRepository;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Event\ManagerInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
 use Magento\CatalogRule\Model\RuleFactory;
@@ -40,7 +41,8 @@ class Product
         protected Transform                           $transform,
         protected ConfigurableProduct                 $configurableProduct,
         protected Clear                               $clear,
-        protected Cache                               $cache
+        protected Cache                               $cache,
+        protected ManagerInterface                    $eventManager
     )
     {
     }
@@ -114,7 +116,6 @@ class Product
                 $this->cache->updateMany($category_ids);
             }
         });
-
     }
 
     public function updateMany(array $ids)
@@ -128,7 +129,7 @@ class Product
 
             $this->elasticClient->iterateStores(function ($store, $indexName) use ($ids, &$category_ids) {
                 foreach ($ids as $id) {
-                    if(!$id) {
+                    if (!$id) {
                         continue;
                     }
                     $product = $this->productRepository->getById($id, false, $store->getId());
@@ -143,7 +144,8 @@ class Product
         });
     }
 
-    public function updateManyBySku(array $skus) {
+    public function updateManyBySku(array $skus)
+    {
         if (!is_array($skus) || \count($skus) == 0) {
             $this->logger->error('can not update product because the skus are not set', ['product', 'update']);
             return;
@@ -153,7 +155,7 @@ class Product
 
             $this->elasticClient->iterateStores(function ($store, $indexName) use ($skus, &$category_ids) {
                 foreach ($skus as $sku) {
-                    if(empty($sku)) {
+                    if (empty($sku)) {
                         continue;
                     }
                     $product = $this->productRepository->get($sku, false, $store->getId());
@@ -273,7 +275,8 @@ class Product
                 $category_ids = \array_merge($category_ids, $configurable_category_ids);
             }
         }
-        // @TODO add eventhandler for brand update
+        // dispatch event to allow easy react to updates
+        $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $storeId]);
         return $category_ids;
     }
 
