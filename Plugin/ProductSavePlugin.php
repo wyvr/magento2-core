@@ -31,7 +31,7 @@ class ProductSavePlugin
         if (is_null($id)) {
             // new product
             // @TODO max item (set sort order)
-            $newestProduct = $this->productCollectionFactory->create()->getLastItem();
+            $newestProduct = $this->productCollectionFactory->create()->setOrder('id', 'ASC')->getLastItem();
             if ($newestProduct->hasData('entity_id')) {
                 $id = $newestProduct->getEntityId();
             }
