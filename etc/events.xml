@@ -3,7 +3,4 @@
     <event name="adminhtml_cache_flush_system">
         <observer name="wyvr_clean_cache_observer" instance="Wyvr\Core\Observer\CleanCache"/>
     </event>
-    <event name="cobby_import_product_import_after">
-        <observer name="wyvr_cobby_product_import_after" instance="Wyvr\Core\Observer\Cobby\ProductImportAfter"/>
-    </event>
 </config>
