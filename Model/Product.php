@@ -120,7 +120,7 @@ class Product
     public function updateMany(array $ids)
     {
         if (!is_array($ids) || \count($ids) == 0) {
-            $this->logger->error('can not update product because the id is not set', ['product', 'update']);
+            $this->logger->error('can not update product because the ids are not set', ['product', 'update']);
             return;
         }
         $this->logger->measure(__('product ids "%1"', join('","', $ids)), ['product', 'update'], function () use ($ids) {
@@ -128,6 +128,9 @@ class Product
 
             $this->elasticClient->iterateStores(function ($store, $indexName) use ($ids, &$category_ids) {
                 foreach ($ids as $id) {
+                    if(!$id) {
+                        continue;
+                    }
                     $product = $this->productRepository->getById($id, false, $store->getId());
                     $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName));
                 }
@@ -138,7 +141,31 @@ class Product
                 $this->cache->updateMany($category_ids);
             }
         });
+    }
 
+    public function updateManyBySku(array $skus) {
+        if (!is_array($skus) || \count($skus) == 0) {
+            $this->logger->error('can not update product because the skus are not set', ['product', 'update']);
+            return;
+        }
+        $this->logger->measure(__('products by sku %1', \count($skus)), ['product', 'update'], function () use ($skus) {
+            $category_ids = [];
+
+            $this->elasticClient->iterateStores(function ($store, $indexName) use ($skus, &$category_ids) {
+                foreach ($skus as $sku) {
+                    if(empty($sku)) {
+                        continue;
+                    }
+                    $product = $this->productRepository->get($sku, false, $store->getId());
+                    $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName));
+                }
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            // update all affected categories
+            if (\count($category_ids) > 0) {
+                $this->cache->updateMany($category_ids);
+            }
+        });
     }
 
     public function delete($id)
@@ -246,6 +273,7 @@ class Product
                 $category_ids = \array_merge($category_ids, $configurable_category_ids);
             }
         }
+        // @TODO add eventhandler for brand update
         return $category_ids;
     }
 
