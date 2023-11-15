@@ -53,12 +53,18 @@ class ElasticClient
         return true;
     }
 
-    public function createIndex(string $indexName, $mapping): bool
+    public function exists(string $indexName): bool
     {
         $indices = $this->elasticSearchClient->indices();
-        $exists = $indices->exists(['index' => $indexName]);
+        return $indices->exists(['index' => $indexName]);
+    }
+
+    public function createIndex(string $indexName, $mapping): bool
+    {
+        $exists = $this->exists($indexName);
         if (!$exists) {
             $this->logger->info(__('create index %1', $indexName, ['elastic']));
+            $indices = $this->elasticSearchClient->indices();
             $indices->create(['index' => $indexName, 'body' => ['mappings' => ['properties' => $mapping]]]);
         }
         return $exists;
