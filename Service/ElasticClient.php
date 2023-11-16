@@ -28,7 +28,8 @@ class ElasticClient
         ClientBuilder        $clientBuilder,
         Logger               $logger,
         Store                $store
-    ) {
+    )
+    {
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
         $this->store = $store;
@@ -286,8 +287,14 @@ class ElasticClient
             'index' => $indexName,
             'id' => $id
         ];
-
-        $result = $this->elasticSearchClient->get($params);
+        try {
+            if (!$this->elasticSearchClient->exists($params)) {
+                return null;
+            }
+            $result = $this->elasticSearchClient->get($params);
+        } catch (\Exception $exception) {
+            return null;
+        }
         if (!$result || !\array_key_exists('_source', $result)) {
             return null;
         }
