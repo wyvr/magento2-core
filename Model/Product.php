@@ -169,9 +169,9 @@ class Product
         });
     }
 
-    public function delete($id)
+    public function delete(int|string $id)
     {
-        if (\count($id) == 0) {
+        if (empty($id)) {
             $this->logger->error('can not delete product because the id is not set', ['product', 'delete']);
             return;
         }
