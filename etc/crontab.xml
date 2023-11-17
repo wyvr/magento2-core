@@ -28,7 +28,7 @@
         </job>
         <job name="wyvr_update_cache" instance="Wyvr\Core\Cron\CronManager"
              method="update_cache">
-            <schedule>0/4 * * * *</schedule>
+            <schedule>*/4 * * * *</schedule>
         </job>
         <job name="wyvr_rebuild_cache" instance="Wyvr\Core\Cron\CronManager"
              method="rebuild_cache">
