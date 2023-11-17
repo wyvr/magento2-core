@@ -70,7 +70,7 @@ class Product
                         $this->logger->info(__('%2%, %1 products processed for store %3', $current, \round(100 / $total * $current), $store->getId()), ['product', 'update', 'all', 'process']);
                     }
                     $product = $this->productRepository->getById($p->getId(), false, $store->getId());
-                    $this->updateProduct($product, $store, $indexName, false);
+                    $this->updateProduct($product, $store, $indexName, false, false);
                     $current++;
                 }
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
@@ -215,15 +215,7 @@ class Product
                     return;
                 }
                 // update quantity and stock status
-                if (array_key_exists('quantity_and_stock_status', $data['product']) && array_key_exists('value', $data['product']['quantity_and_stock_status'])) {
-                    $data['product']['quantity_and_stock_status']['value'] = $product->getQuantityAndStockStatus();
-                }
-                $data['product']['stock'] = null;
-                try {
-                    $data['product']['stock'] = $this->stockItemRepository->get($product->getId())->getData();
-                } catch (\Exception $exception) {
-                    $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
-                }
+                $this->appendStock($data['product'], $product);
 
                 $this->elasticClient->update($indexName, $data);
 
@@ -234,7 +226,7 @@ class Product
         });
     }
 
-    public function updatePriceBySku($sku)
+    public function updatePriceBySku($sku): void
     {
         $this->logger->measure(__('price of sku "%1"', $sku), ['price', 'update'], function () use ($sku, &$category_ids) {
             $category_ids = [];
@@ -267,7 +259,7 @@ class Product
         });
     }
 
-    public function updateProduct($product, $store, string $indexName, ?bool $partial_import = true): array
+    public function updateProduct($product, $store, string $indexName, ?bool $partial_import = true, ?bool $fire_event = true): array
     {
         $id = $product->getEntityId();
         $storeId = $store->getId();
@@ -356,7 +348,9 @@ class Product
         }
 
         // dispatch event to allow easy react to updates
-        $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $storeId]);
+        if ($fire_event) {
+            $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $storeId]);
+        }
         return $category_ids;
     }
 
@@ -364,35 +358,30 @@ class Product
     {
         // get base data
         $data = $product->getData();
-        $data['stock'] = null;
-        try {
-            $data['stock'] = $this->stockItemRepository->get($product->getId())->getData();
-        } catch (\Exception $exception) {
-            $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
-        }
         // add the categories
         $data['category_ids'] = $product->getCategoryIds();
         // extend the attributes
         $this->appendAttributes($data, $product, $storeId);
+        $this->appendStock($data, $product);
         $this->appendPrice($data, $product);
         $this->appendConfigurables($data, $product, $storeId);
         return $data;
     }
 
-    public function appendConfigurables(&$data, $product, $storeId)
+    public function appendConfigurables(&$data, $product): void
     {
         if ($product->getTypeId() !== 'configurable') {
             return;
         }
         $instance = $product->getTypeInstance();
-        $data['configurable_products'] = array_map(function ($p) use ($storeId) {
+        $data['configurable_products'] = array_map(function ($p) {
             // @NOTE getUsedProducts returns only a subset of all available product attributes, avoid duplicating data, the simples to the cionfigurables has to be loaded on the client
             return $p->getId();
         }, $instance->getUsedProducts($product));
         $data['configurable_options'] = $instance->getConfigurableOptions($product);
     }
 
-    public function appendPrice(&$data, $product)
+    public function appendPrice(&$data, $product): void
     {
         $data['final_price'] = $product->getFinalPrice();
 
@@ -410,6 +399,21 @@ class Product
             $product,
             $product->getPrice()
         );
+    }
+
+    public function appendStock(&$data, $product): void
+    {
+        // update quantity and stock status
+        if (array_key_exists('quantity_and_stock_status', $data) && array_key_exists('value', $data['quantity_and_stock_status'])) {
+            $data['quantity_and_stock_status']['value'] = $product->getQuantityAndStockStatus();
+        }
+        $stock = null;
+        try {
+            $stock = $this->stockItemRepository->get($product->getId())->getData();
+        } catch (\Exception $exception) {
+            $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
+        }
+        $data['stock'] = $stock;
     }
 
     public function appendAttributes(&$data, $product, $storeId)
