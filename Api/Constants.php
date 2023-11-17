@@ -58,6 +58,19 @@ class Constants
         ]
     ];
 
+
+    const PARENT_PRODUCTS_NAME = 'wyvr_parent_products';
+    const PARENT_PRODUCTS_STRUC = [
+        'id' => [
+            'type' => 'keyword',
+            'index' => true
+        ],
+        'type_id' => [
+            'type' => 'keyword',
+            'index' => false
+        ]
+    ];
+
     const CATEGORY_INDEX_ATTRIBUTES = "wyvr/category/index_attributes";
     const CATEGORY_STRUC = [
         'id' => [

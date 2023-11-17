@@ -21,6 +21,7 @@ use Wyvr\Core\Logger\Logger;
 use Wyvr\Core\Service\ElasticClient;
 use Magento\ConfigurableProduct\Model\Product\Type\Configurable as ConfigurableProduct;
 use Magento\Catalog\Model\Product\Attribute\Source\Status;
+use Wyvr\Core\Service\Store;
 
 class Product
 {
@@ -42,7 +43,8 @@ class Product
         protected ConfigurableProduct                 $configurableProduct,
         protected Clear                               $clear,
         protected Cache                               $cache,
-        protected ManagerInterface                    $eventManager
+        protected ManagerInterface                    $eventManager,
+        protected Store                               $store
     ) {
     }
 
@@ -72,6 +74,25 @@ class Product
                     $current++;
                 }
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
+        });
+    }
+    public function updateParentProducts($triggerName): void
+    {
+        if (!$this->elasticClient->exists(Constants::PARENT_PRODUCTS_NAME)) {
+            return;
+        }
+        $data = $this->elasticClient->getIndexData(Constants::PARENT_PRODUCTS_NAME);
+        // clear the brands cache index
+        $this->elasticClient->destroy(Constants::PARENT_PRODUCTS_NAME);
+        $this->logger->measure($triggerName, ['product', 'update'], function () use (&$data) {
+            $this->store->iterate(function ($store) use (&$data) {
+                foreach ($data as $entry) {
+                    if (\array_key_exists('_source', $entry) && \array_key_exists('type_id', $entry['_source']) && $entry['_source']['type_id'] == 'configurable') {
+                        $product = $this->productRepository->getById($entry['_id'], false, $store->getId());
+                        $this->updateProduct($product, $store, 'wyvr_product_' . $store->getId());
+                    }
+                }
+            });
         });
     }
 
@@ -299,12 +320,15 @@ class Product
                     if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
                         continue;
                     }
-                    $parentProductsFull[] = $configurableProduct;
                     $parent = [
                         'id' => $parentId,
                         'sku' => $configurableProduct->getSku(),
                         'url_key' => $configurableProduct->getUrlKey(),
                     ];
+
+                    // mark product for later processing
+                    $this->elasticClient->createIndex(Constants::PARENT_PRODUCTS_NAME, Constants::PARENT_PRODUCTS_STRUC);
+                    $this->elasticClient->update(Constants::PARENT_PRODUCTS_NAME, ['id' => $parentId, 'type_id' => 'configurable']);
 
                     $parentProducts[] = $parent;
                 }
@@ -331,13 +355,6 @@ class Product
             $this->clear->upsert('product', $url);
         }
 
-        if (\count($parentProductsFull) > 0) {
-            foreach ($parentProductsFull as $parentProduct) {
-                $this->logger->debug(__('update configurable product %1', $parentProduct->getId()), ['product', 'update']);
-                $configurable_category_ids = $this->updateProduct($parentProduct, $store, $indexName, $partial_import);
-                $category_ids = \array_merge($category_ids, $configurable_category_ids);
-            }
-        }
         // dispatch event to allow easy react to updates
         $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $storeId]);
         return $category_ids;
