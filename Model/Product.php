@@ -80,10 +80,11 @@ class Product
         });
     }
 
-    public function updateCache($triggerName)
+    public function updateCache($triggerName): void
     {
         $category_ids = [];
         $context = ['product', 'cache', 'update'];
+
         $this->logger->measure($triggerName, $context, function () use (&$category_ids, &$context) {
             // load all product skus in the shop
             $selectProducts = "select entity_id, updated_at, type_id from catalog_product_entity;";
@@ -91,7 +92,7 @@ class Product
 
             $result = [];
 
-            $this->elasticClient->iterateStores(function ($store, $indexName) use (&$product_entities, &$category_ids, &$result, &$context) {
+            $this->elasticClient->iterateStores(function ($store, $indexName) use (&$category_ids, &$product_entities, &$result, &$context) {
                 $storeId = $store->getId();
                 $totalInShop = \count($product_entities);
                 $inserted = 0;
@@ -128,25 +129,30 @@ class Product
                     unset($products_map[$id]);
 
                     if ($data['product']['updated_at'] == $productEntity['updated_at'] && $productEntity['type_id'] == 'simple') {
+
+                        $changed = $this->hasChanged($data['product'], $product);
                         // get the newest price
                         $this->appendPrice($data['product'], $product);
                         $this->appendStock($data['product'], $product);
                         // update the entry in the elastic
                         $this->elasticClient->update($indexName, $data);
-
-                        $category_ids = \array_merge($category_ids, $product->getCategoryIds());
-
+                        if ($changed) {
+                            $this->clear->upsert('product', $product->getUrlKey());
+                            $category_ids = \array_merge($category_ids, $product->getCategoryIds());
+                        }
                         $cleaned++;
                         continue;
                     }
                     $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName, false, false));
+                    $this->clear->upsert('product', $product->getUrlKey());
                     $updated++;
                 }
                 $this->logger->info(__('processed %1/%2 %3%%', $count, $totalInShop, round($totalInShop / 100 * $count)), $context);
 
                 $this->logger->info(__('delete %1 products', \count($products_map)), $context);
                 foreach ($products_map as $entry) {
-                    $this->elasticClient->delete($indexName, $entry['entity_id']);
+                    $this->elasticClient->delete($indexName, $entry['id']);
+                    $this->clear->delete('product', $entry['url']);
                     $deleted++;
                 }
                 unset($products_map);
@@ -161,7 +167,12 @@ class Product
                 ];
             }, self::INDEX, Constants::PRODUCT_STRUC);
 
-            $this->eventManager->dispatch(Constants::EVENT_PRODUCT_CACHE_UPDATE_AFTER, ['result' => $result]);
+            $clearCaches = \count($category_ids) > 0;
+            if($clearCaches) {
+                $this->cache->updateMany($category_ids);
+            }
+
+            $this->eventManager->dispatch(Constants::EVENT_PRODUCT_CACHE_UPDATE_AFTER, ['result' => $result, 'clearCaches' => $clearCaches]);
         });
     }
 
@@ -450,6 +461,23 @@ class Product
         return $category_ids;
     }
 
+    public function hasChanged(?array $data_product, $product): bool
+    {
+        if (!$data_product) {
+            return true;
+        }
+        if ($data_product['final_price'] != $product->getFinalPrice()) {
+            return true;
+        }
+        if (array_key_exists('quantity_and_stock_status', $data_product) && array_key_exists('value', $data_product['quantity_and_stock_status']) && $data_product['quantity_and_stock_status']['value'] != $product->getQuantityAndStockStatus()) {
+            return true;
+        }
+        if ($data_product['stock'] != $this->getProductStock($product)) {
+            return true;
+        }
+        return false;
+    }
+
     public function getProductData($product, $storeId)
     {
         // get base data
@@ -503,13 +531,7 @@ class Product
         if (array_key_exists('quantity_and_stock_status', $data) && array_key_exists('value', $data['quantity_and_stock_status'])) {
             $data['quantity_and_stock_status']['value'] = $product->getQuantityAndStockStatus();
         }
-        $stock = null;
-        try {
-            $stock = $this->stockItemRepository->get($product->getId())->getData();
-        } catch (\Exception $exception) {
-            $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
-        }
-        $data['stock'] = $stock;
+        $data['stock'] = $this->getProductStock($product);
     }
 
     public function appendAttributes(&$data, $product, $storeId)
@@ -561,5 +583,15 @@ class Product
                 }
             }
         }
+    }
+
+    public function getProductStock($product)
+    {
+        try {
+            return $this->stockItemRepository->get($product->getId())->getData();
+        } catch (\Exception $exception) {
+            $this->logger->debug(__('can\'t get stock for product %1, %2', $product->getId(), $exception->getMessage()), ['product', 'stock']);
+        }
+        return null;
     }
 }
