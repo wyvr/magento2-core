@@ -10,6 +10,10 @@
              method="rebuild_categories">
             <!-- <schedule>0 0 30 2 *</schedule> -->
         </job>
+        <job name="wyvr_update_products" instance="Wyvr\Core\Cron\CronManager"
+             method="update_products">
+            <schedule>0 * * * *</schedule>
+        </job>
         <job name="wyvr_update_parent_products" instance="Wyvr\Core\Cron\CronManager"
              method="update_parent_products">
             <schedule>*/2 * * * *</schedule>

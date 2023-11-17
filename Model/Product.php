@@ -10,6 +10,7 @@ namespace Wyvr\Core\Model;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory as ProductCollectionFactory;
 use Magento\Catalog\Model\ProductRepository;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
@@ -44,8 +45,10 @@ class Product
         protected Clear                               $clear,
         protected Cache                               $cache,
         protected ManagerInterface                    $eventManager,
+        protected ResourceConnection                  $resource,
         protected Store                               $store
-    ) {
+    )
+    {
     }
 
     public function updateAll($triggerName)
@@ -76,6 +79,92 @@ class Product
             }, self::INDEX, Constants::PRODUCT_STRUC, true);
         });
     }
+
+    public function updateCache($triggerName)
+    {
+        $category_ids = [];
+        $context = ['product', 'cache', 'update'];
+        $this->logger->measure($triggerName, $context, function () use (&$category_ids, &$context) {
+            // load all product skus in the shop
+            $selectProducts = "select entity_id, updated_at, type_id from catalog_product_entity;";
+            $product_entities = $this->resource->getConnection()->query($selectProducts)->fetchAll();
+
+            $result = [];
+
+            $this->elasticClient->iterateStores(function ($store, $indexName) use (&$product_entities, &$category_ids, &$result, &$context) {
+                $storeId = $store->getId();
+                $totalInShop = \count($product_entities);
+                $inserted = 0;
+                $updated = 0;
+                $cleaned = 0;
+                $deleted = 0;
+
+                // load all products from the elastic cache
+                $cache = $this->elasticClient->getIndexData($indexName);
+                $products_map = [];
+
+                foreach ($cache as $product) {
+                    $products_map[$product['_source']['id']] = $product['_source'];
+                }
+                unset($cache);
+
+                // process the products
+                $count = 0;
+                foreach ($product_entities as $productEntity) {
+                    $count++;
+                    if ($count % 1000 == 0) {
+                        $this->logger->info(__('processed %1/%2 %3%', $count, $totalInShop, round($count / $totalInShop * 100)), $context);
+                    }
+                    $id = $productEntity['entity_id'];
+                    $product = $this->productRepository->getById($id, false, $storeId);
+
+                    if (!\array_key_exists($id, $products_map)) {
+                        $inserted++;
+                        $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName, false, false));
+                        continue;
+                    }
+                    $data = $products_map[$id];
+                    // remove from the cache to check which products are in the cache that are no longer available
+                    unset($products_map[$id]);
+
+                    if ($data['product']['updated_at'] == $productEntity['updated_at'] && $productEntity['type_id'] == 'simple') {
+                        // get the newest price
+                        $this->appendPrice($data['product'], $product);
+                        $this->appendStock($data['product'], $product);
+                        // update the entry in the elastic
+                        $this->elasticClient->update($indexName, $data);
+
+                        $category_ids = \array_merge($category_ids, $product->getCategoryIds());
+
+                        $cleaned++;
+                        continue;
+                    }
+                    $category_ids = \array_merge($category_ids, $this->updateProduct($product, $store, $indexName, false, false));
+                    $updated++;
+                }
+                $this->logger->info(__('processed %1/%2 %3%%', $count, $totalInShop, round($totalInShop / 100 * $count)), $context);
+
+                $this->logger->info(__('delete %1 products', \count($products_map)), $context);
+                foreach ($products_map as $entry) {
+                    $this->elasticClient->delete($indexName, $entry['entity_id']);
+                    $deleted++;
+                }
+                unset($products_map);
+
+                $this->logger->info(__('store %1: total %2, inserted %3, updated %4, cleaned %5, deleted %6', $storeId, $totalInShop, $inserted, $updated, $cleaned, $deleted), $context);
+                $result[$storeId] = [
+                    'totalInShop' => $totalInShop,
+                    'inserted' => $inserted,
+                    'updated' => $updated,
+                    'cleaned' => $cleaned,
+                    'deleted' => $deleted,
+                ];
+            }, self::INDEX, Constants::PRODUCT_STRUC);
+
+            $this->eventManager->dispatch(Constants::EVENT_PRODUCT_CACHE_UPDATE_AFTER, ['result' => $result]);
+        });
+    }
+
     public function updateParentProducts($triggerName): void
     {
         if (!$this->elasticClient->exists(Constants::PARENT_PRODUCTS_NAME)) {

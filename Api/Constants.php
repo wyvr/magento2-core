@@ -187,4 +187,5 @@ class Constants
     ];
 
     const EVENT_PRODUCT_UPDATE_AFTER = "wyvr_product_update_after";
+    const EVENT_PRODUCT_CACHE_UPDATE_AFTER = "wyvr_product_cache_update_after";
 }

@@ -48,6 +48,11 @@ class CronManager
     public function update_cache(): void {
         $this->cache->updatePartial('cron cache update');
     }
+
+    public function update_products():void {
+        $this->product->updateCache('cron product update cache');
+    }
+
     public function update_parent_products(): void {
         $this->product->updateParentProducts('cron parent product update cache');
     }
