@@ -173,12 +173,19 @@ class Product
         $data = $this->elasticClient->getIndexData(Constants::PARENT_PRODUCTS_NAME);
         // clear the brands cache index
         $this->elasticClient->destroy(Constants::PARENT_PRODUCTS_NAME);
-        $this->logger->measure($triggerName, ['product', 'update'], function () use (&$data) {
-            $this->store->iterate(function ($store) use (&$data) {
+        $context = ['product', 'parent', 'update'];
+        $this->logger->measure($triggerName, $context, function () use (&$data, &$context) {
+            $ignoredStores = $this->elasticClient->getIgnoredStores();
+            $this->store->iterate(function ($store) use (&$data, &$ignoredStores, &$context) {
+                $storeId = $store->getId();
+                if (in_array($storeId, $ignoredStores)) {
+                    return;
+                }
+                $this->logger->info(__('update %1 parent products', \count($data)), $context);
                 foreach ($data as $entry) {
                     if (\array_key_exists('_source', $entry) && \array_key_exists('type_id', $entry['_source']) && $entry['_source']['type_id'] == 'configurable') {
-                        $product = $this->productRepository->getById($entry['_id'], false, $store->getId());
-                        $this->updateProduct($product, $store, 'wyvr_product_' . $store->getId());
+                        $product = $this->productRepository->getById($entry['_id'], false, $storeId);
+                        $this->updateProduct($product, $store, 'wyvr_product_' . $storeId);
                     }
                 }
             });

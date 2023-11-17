@@ -46,6 +46,11 @@ class ElasticClient
         }
     }
 
+    public function getIgnoredStores(): array
+    {
+        return $this->ignoredStores;
+    }
+
     public function isValid(string $indexName): bool
     {
         if (!$this->isAvailable($indexName)) {
