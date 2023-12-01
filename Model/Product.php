@@ -331,6 +331,9 @@ class Product
 
                 $this->clear->upsert('product', $data['url']);
 
+                // trigger update of the parent products
+                $this->updateParentProductsOfSimple($id, $product->getTypeId());
+
                 $this->logger->info(__('update stock of id "%1"', $id), ['stock', 'update']);
             }, self::INDEX, Constants::PRODUCT_STRUC);
         });
@@ -366,6 +369,9 @@ class Product
 
                 // dispatch event to allow easy react to updates
                 $this->eventManager->dispatch(Constants::EVENT_PRODUCT_UPDATE_AFTER, ['product' => $product, 'category_ids' => $category_ids, 'store_id' => $store_id]);
+
+                // trigger update of the parent products
+                $this->updateParentProductsOfSimple($id, $product->getTypeId());
 
                 $this->logger->info(__('update price of id "%1"', $id), ['price', 'update']);
             }, self::INDEX, Constants::PRODUCT_STRUC);
@@ -411,36 +417,12 @@ class Product
         $url = $product->getUrlKey();
 
 
-        $parentProducts = [];
-        $parentProductsFull = [];
         // not required in a full reindex, because the configurable also gets processed
-        if ($product->getTypeId() == 'simple' && $partial_import) {
-            // Get all parent ids of this product
-            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
-            if (\count($parentIds) > 0) {
-                // This means that the simple product is associated with a configurable product, load it
-                foreach ($parentIds as $parentId) {
-                    $configurableProduct = $this->productRepository->getById($parentId);
-                    // ignore disabled parents
-                    if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
-                        continue;
-                    }
-                    $parent = [
-                        'id' => $parentId,
-                        'sku' => $configurableProduct->getSku(),
-                        'url_key' => $configurableProduct->getUrlKey(),
-                    ];
-
-                    // mark product for later processing
-                    $this->elasticClient->createIndex(Constants::PARENT_PRODUCTS_NAME, Constants::PARENT_PRODUCTS_STRUC);
-                    $this->elasticClient->update(Constants::PARENT_PRODUCTS_NAME, ['id' => $parentId, 'type_id' => 'configurable']);
-
-                    $parentProducts[] = $parent;
-                }
+        if ($partial_import) {
+            $parentProducts = $this->updateParentProductsOfSimple($id, $product->getTypeId());
+            if (\count($parentProducts) > 0) {
+                $data['parent_products'] = $parentProducts;
             }
-        }
-        if (\count($parentProducts) > 0) {
-            $data['parent_products'] = $parentProducts;
         }
 
         $this->elasticClient->update($indexName, [
@@ -467,6 +449,50 @@ class Product
         return $category_ids;
     }
 
+    /**
+     * Update the parent products of a simple product
+     * @param int $id
+     * @param string $type
+     * @return array
+     */
+    public function updateParentProductsOfSimple(int $id, string $type): array
+    {
+        $parentProducts = [];
+        // not required in a full reindex, because the configurable also gets processed
+        if ($type == 'simple') {
+            // Get all parent ids of this product
+            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
+            if (\count($parentIds) > 0) {
+                // This means that the simple product is associated with a configurable product, load it
+                foreach ($parentIds as $parentId) {
+                    $configurableProduct = $this->productRepository->getById($parentId);
+                    // ignore disabled parents
+                    if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
+                        continue;
+                    }
+                    $parent = [
+                        'id' => $parentId,
+                        'sku' => $configurableProduct->getSku(),
+                        'url_key' => $configurableProduct->getUrlKey(),
+                    ];
+
+                    // mark product for later processing
+                    $this->elasticClient->createIndex(Constants::PARENT_PRODUCTS_NAME, Constants::PARENT_PRODUCTS_STRUC);
+                    $this->elasticClient->update(Constants::PARENT_PRODUCTS_NAME, ['id' => $parentId, 'type_id' => 'configurable']);
+
+                    $parentProducts[] = $parent;
+                }
+            }
+        }
+        return $parentProducts;
+    }
+
+    /**
+     * Check if the product has changed against the data in the product index
+     * @param array|null $data_product
+     * @param \Magento\Catalog\Model\Product $product
+     * @return bool
+     */
     public function hasChanged(?array $data_product, $product): bool
     {
         if (!$data_product) {
