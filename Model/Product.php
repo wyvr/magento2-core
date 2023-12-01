@@ -147,7 +147,7 @@ class Product
                     $this->clear->upsert('product', $product->getUrlKey());
                     $updated++;
                 }
-                $this->logger->info(__('processed %1/%2 %3%%', $count, $totalInShop, round($totalInShop / 100 * $count)), $context);
+                $this->logger->info(__('processed %1/%2 %3%%', $count, $totalInShop, round($count / $totalInShop * 100)), $context);
 
                 $this->logger->info(__('delete %1 products', \count($products_map)), $context);
                 foreach ($products_map as $entry) {
