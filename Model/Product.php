@@ -168,7 +168,7 @@ class Product
             }, self::INDEX, Constants::PRODUCT_STRUC);
 
             $clearCaches = \count($category_ids) > 0;
-            if($clearCaches) {
+            if ($clearCaches) {
                 $this->cache->updateMany($category_ids);
             }
 
@@ -310,7 +310,10 @@ class Product
         }, self::INDEX, Constants::PRODUCT_STRUC);
     }
 
-    public function updateStock($id)
+    /**
+     * Update the stock of a product without triggering full reindex of the product
+     */
+    public function updateStock($id): void
     {
         $this->logger->measure(__('stock of id "%1"', $id), ['stock', 'update'], function () use ($id, &$category_ids) {
             $category_ids = [];
@@ -333,6 +336,9 @@ class Product
         });
     }
 
+    /**
+     * Update the price of a product without triggering full reindex of the product
+     */
     public function updatePriceBySku($sku): void
     {
         $this->logger->measure(__('price of sku "%1"', $sku), ['price', 'update'], function () use ($sku, &$category_ids) {
