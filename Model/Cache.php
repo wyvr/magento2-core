@@ -59,7 +59,7 @@ class Cache
                 $products_map = $this->getProductsMap($storeId);
 
                 foreach ($categories as $category) {
-                    $this->updateCategory($indexName, $category, $products_map);
+                    $this->updateCategory($indexName, $category, $products_map, $store);
                 }
             }, self::INDEX, Constants::CACHE_STRUC, true);
         });
@@ -92,7 +92,7 @@ class Cache
 
                 foreach ($categories as $category) {
                     if (in_array($category->getId(), $ids)) {
-                        $this->updateCategory($indexName, $category, $products_map);
+                        $this->updateCategory($indexName, $category, $products_map, $store);
                         $this->clear->upsert('category', $category->getUrlPath() ?? '');
                     }
                 }
@@ -135,16 +135,20 @@ class Cache
         return $products_map;
     }
 
-    public function updateCategory($indexName, $category, $products_map)
+    public function updateCategory($indexName, $category, $products_map, $store)
     {
         // avoid categories without url in cache
         if (!$category->getUrlPath()) {
             return;
         }
-        $category_products = $category->getProductCollection()
+        $collection = $this->productCollectionFactory->create()
+            ->setStore($store)
             ->addAttributeToFilter('status', ['in' => $this->productStatus->getVisibleStatusIds()])
             ->setVisibility($this->productVisibility->getVisibleInCatalogIds())
-            ->getItems();
+            ->addCategoriesFilter(['in' => [$category->getId()]]);
+
+        $category_products = $collection->getItems();
+
         $reduced_products = array_filter(array_map(function ($product) use ($products_map) {
             if (!array_key_exists($product->getId(), $products_map)) {
                 return null;
