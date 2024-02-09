@@ -22,8 +22,6 @@ class Category
     private const INDEX = 'category';
     private string $indexName;
 
-    private array $cacheProductCollection = [];
-
     public function __construct(
         protected ScopeConfigInterface      $scopeConfig,
         protected Logger                    $logger,
@@ -112,12 +110,8 @@ class Category
 
     public function getProductsOfCategory($id, $store)
     {
-        $store_id = $store->getId();
-        if (!array_key_exists($store_id, $this->cacheProductCollection)) {
-            $this->cacheProductCollection[$store_id] = $this->productCollectionFactory->create()
-                ->setStore($store);
-        }
-        $products = $this->cacheProductCollection[$store_id]
+        $products = $this->productCollectionFactory->create()
+            ->setStore($store)
             ->addCategoriesFilter(['in' => [$id]])
             ->getItems();
 
