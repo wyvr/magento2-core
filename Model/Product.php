@@ -12,6 +12,7 @@ use Magento\Catalog\Model\ProductRepository;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Catalog\Api\ProductAttributeManagementInterface;
 use Magento\CatalogRule\Model\RuleFactory;
@@ -417,12 +418,10 @@ class Product
         $url = $product->getUrlKey();
 
 
-        // not required in a full reindex, because the configurable also gets processed
-        if ($partial_import) {
-            $parentProducts = $this->updateParentProductsOfSimple($id, $product->getTypeId());
-            if (\count($parentProducts) > 0) {
-                $data['parent_products'] = $parentProducts;
-            }
+        // allways update the parent configurable of the simple product
+        $parentProducts = $this->updateParentProductsOfSimple($id, $product->getTypeId(), $partial_import);
+        if (\count($parentProducts) > 0) {
+            $data['parent_products'] = $parentProducts;
         }
 
         $this->elasticClient->update($indexName, [
@@ -453,37 +452,47 @@ class Product
      * Update the parent products of a simple product
      * @param int $id
      * @param string $type
+     * @param bool|null $partial_import
      * @return array
      */
-    public function updateParentProductsOfSimple(int $id, string $type): array
+    public function updateParentProductsOfSimple(int $id, string $type, ?bool $partial_import = true): array
     {
         $parentProducts = [];
         // not required in a full reindex, because the configurable also gets processed
-        if ($type == 'simple') {
-            // Get all parent ids of this product
-            $parentIds = $this->configurableProduct->getParentIdsByChild($id);
-            if (\count($parentIds) > 0) {
-                // This means that the simple product is associated with a configurable product, load it
-                foreach ($parentIds as $parentId) {
+        if ($type != 'simple') {
+            return $parentProducts;
+        }
+        // Get all parent ids of this product
+        $parentIds = $this->configurableProduct->getParentIdsByChild($id);
+        if (\count($parentIds) > 0) {
+            // This means that the simple product is associated with a configurable product, load it
+            foreach ($parentIds as $parentId) {
+                try {
                     $configurableProduct = $this->productRepository->getById($parentId);
-                    // ignore disabled parents
-                    if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
-                        continue;
-                    }
-                    $parent = [
-                        'id' => $parentId,
-                        'sku' => $configurableProduct->getSku(),
-                        'url_key' => $configurableProduct->getUrlKey(),
-                    ];
+                } catch (\Exception $e) {
+                    continue;
+                }
+                // ignore disabled parents
+                if ($configurableProduct->getStatus() == Status::STATUS_DISABLED) {
+                    continue;
+                }
+                $parent = [
+                    'id' => $parentId,
+                    'sku' => $configurableProduct->getSku(),
+                    'url_key' => $configurableProduct->getUrlKey(),
+                ];
 
+                // not required in a full reindex, because the configurable also gets processed
+                if ($partial_import) {
                     // mark product for later processing
                     $this->elasticClient->createIndex(Constants::PARENT_PRODUCTS_NAME, Constants::PARENT_PRODUCTS_STRUC);
                     $this->elasticClient->update(Constants::PARENT_PRODUCTS_NAME, ['id' => $parentId, 'type_id' => 'configurable']);
-
-                    $parentProducts[] = $parent;
                 }
+
+                $parentProducts[] = $parent;
             }
         }
+
         return $parentProducts;
     }
 
