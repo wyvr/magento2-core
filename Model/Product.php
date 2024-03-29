@@ -392,7 +392,8 @@ class Product
         }
         $category_ids = $product->getCategoryIds();
         // check if the product has to be updated, to avoid multiple updates in series
-        if ($partial_import) {
+        // configurables has to be updated because it gets triggered by the simple product and it willnot be updated directly
+        if ($partial_import && $product->getTypeId() !== 'configurable') {
             $data = $this->elasticClient->getById($indexName, $id);
             if ($data && $data['updated_at'] === $product->getUpdatedAt()) {
                 // product has not been changed, ignore
