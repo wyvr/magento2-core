@@ -183,8 +183,11 @@ class Product
             return;
         }
         $data = $this->elasticClient->getIndexData(Constants::PARENT_PRODUCTS_NAME);
-        // clear the brands cache index
-        $this->elasticClient->destroy(Constants::PARENT_PRODUCTS_NAME);
+        // remove only the entries that are processed in this batch
+        foreach ($data as $entry) {
+            $this->elasticClient->delete(Constants::PARENT_PRODUCTS_NAME, $entry['_id']);
+        }
+
         $context = ['product', 'parent', 'update'];
         $this->logger->measure($triggerName, $context, function () use (&$data, &$context) {
             $ignoredStores = $this->elasticClient->getIgnoredStores();
