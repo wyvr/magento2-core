@@ -48,8 +48,7 @@ class Product
         protected ManagerInterface                    $eventManager,
         protected ResourceConnection                  $resource,
         protected Store                               $store
-    )
-    {
+    ) {
     }
 
     public function updateAll($triggerName)
@@ -200,7 +199,8 @@ class Product
                 foreach ($data as $entry) {
                     if (\array_key_exists('_source', $entry) && \array_key_exists('type_id', $entry['_source']) && $entry['_source']['type_id'] == 'configurable') {
                         $product = $this->productRepository->getById($entry['_id'], false, $storeId);
-                        $this->updateProduct($product, $store, 'wyvr_product_' . $storeId);
+                        // force update the configurable product
+                        $this->updateProduct($product, $store, 'wyvr_product_' . $storeId, false);
                     }
                 }
             });
@@ -392,11 +392,14 @@ class Product
         }
         $category_ids = $product->getCategoryIds();
         // check if the product has to be updated, to avoid multiple updates in series
-        // configurables has to be updated because it gets triggered by the simple product and it willnot be updated directly
-        if ($partial_import && $product->getTypeId() !== 'configurable') {
+        // @WARN configurables should not be updated with partial_import because it gets triggered by the simple product and it will not be updated directly
+        if ($partial_import) {
             $data = $this->elasticClient->getById($indexName, $id);
             if ($data && $data['updated_at'] === $product->getUpdatedAt()) {
                 // product has not been changed, ignore
+                if ($product->getTypeId() === 'configurable') {
+                    $this->logger->warning(__('configurable %1 was ignored because updated_at has not been changed', $id), ['product', 'update']);
+                }
                 return [];
             }
             $prev_category_ids = $data['product']['category_ids']['value'] ?? [];
