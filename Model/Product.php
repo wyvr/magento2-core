@@ -391,15 +391,13 @@ class Product
             return [];
         }
         $category_ids = $product->getCategoryIds();
+        $isConfigurable = $product->getTypeId() === 'configurable';
         // check if the product has to be updated, to avoid multiple updates in series
-        // @WARN configurables should not be updated with partial_import because it gets triggered by the simple product and it will not be updated directly
-        if ($partial_import) {
+        // configurables will always regenerated because the updated_at value is not relevant for them, because they have a relation to simples
+        if ($partial_import && !$isConfigurable) {
             $data = $this->elasticClient->getById($indexName, $id);
             if ($data && $data['updated_at'] === $product->getUpdatedAt()) {
                 // product has not been changed, ignore
-                if ($product->getTypeId() === 'configurable') {
-                    $this->logger->warning(__('configurable %1 was ignored because updated_at has not been changed', $id), ['product', 'update']);
-                }
                 return [];
             }
             $prev_category_ids = $data['product']['category_ids']['value'] ?? [];
@@ -444,7 +442,7 @@ class Product
         ]);
 
         // mark the product to be re-executed
-        if ($partial_import) {
+        if ($partial_import || $isConfigurable) {
             $this->clear->upsert('product', $url);
         }
 
