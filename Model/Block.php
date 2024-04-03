@@ -90,7 +90,7 @@ class Block
 
         $this->elasticClient->update($indexName, [
             'id' => $id,
-            'identifier' => strtolower($block->getIdentifier() ?? ''),
+            'identifier' => mb_strtolower($block->getIdentifier(),
             'is_active' => $data['is_active'],
             'block' => $data
         ]);

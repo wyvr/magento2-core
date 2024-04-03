@@ -97,7 +97,7 @@ class Category
         $this->elasticClient->update($indexName, [
             'id' => $id,
             'url' => strtolower($category->getUrlPath() ?? ''),
-            'name' => strtolower($category->getName() ?? ''),
+            'name' => mb_strtolower($category->getName(), 'UTF-8'),
             'is_active' => $data['is_active'],
             'search' => $this->elasticClient->getSearchFromAttributes($this->scopeConfig->getValue(Constants::CATEGORY_INDEX_ATTRIBUTES), $data),
             'category' => $data
