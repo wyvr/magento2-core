@@ -432,8 +432,8 @@ class Product
         $this->elasticClient->update($indexName, [
             'id' => $id,
             'url' => strtolower($url),
-            'sku' => strtolower($product->getSku()),
-            'name' => strtolower($product->getName()),
+            'sku' => mb_strtolower($product->getSku(), 'UTF-8'),
+            'name' => mb_strtolower($product->getName(), 'UTF-8'),
             'visibility' => intval($product->getVisibility()),
             'search' => $search,
             'product' => $data,
