@@ -3,6 +3,7 @@
     "type": "magento2-module",
     "version": "0.0.0",
     "description": "Magento 2 wyvr Connector Module",
+    "license": "MIT",
     "keywords": [
         "wyvr",
         "magento2",
