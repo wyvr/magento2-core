@@ -201,6 +201,7 @@ class ElasticClient
             }
             if ($create_new && !$avoid_reupdate) {
                 $this->updateAlias($alias, $index_name, $versions['prev_aliases'], $versions['all']);
+                $this->logger->info(__('index alias %1 for store %2 has been updated', $alias, $store_id));
             }
         });
     }
