@@ -196,7 +196,8 @@ class ElasticClient
             try {
                 $callback($store, $index_name);
             } catch (\Exception $exception) {
-                $this->logger->error(__('error in callback for store %1 %2', $store_id, $exception->getMessage()));
+                $this->logger->error(__('error in callback for store %1 index %2: %3', $store_id, $alias, $exception->getMessage()));
+                return;
             }
             if ($create_new && !$avoid_reupdate) {
                 $this->updateAlias($alias, $index_name, $versions['prev_aliases'], $versions['all']);
